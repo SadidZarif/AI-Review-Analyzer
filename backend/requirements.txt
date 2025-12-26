@@ -1,1 +1,14 @@
+# Web Framework
+fastapi>=0.100.0
+uvicorn>=0.20.0
 
+# Data Validation
+pydantic>=2.0.0
+
+# Machine Learning
+scikit-learn>=1.0.0
+numpy>=1.20.0
+
+# যদি পরে Amazon scraping করতে চাও
+# requests>=2.28.0
+# beautifulsoup4>=4.11.0
