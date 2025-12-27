@@ -1,12 +1,12 @@
 # ============ IMPORTS ============
 
-# re হলো Regular Expression library - text clean করতে ব্যবহার করব
-# যেমন: special characters, extra spaces সরাতে
-import re
-
 # numpy হলো numerical computing library
 # array operations, calculations এর জন্য দরকার
 import numpy as np
+
+# utils.py থেকে helper functions import করছি
+# extract_words = text থেকে meaningful words বের করে (stop words বাদ দিয়ে)
+from utils import extract_words
 
 # TfidfVectorizer: Text কে numbers এ convert করে (vectors)
 # TF-IDF = Term Frequency - Inverse Document Frequency
@@ -245,55 +245,12 @@ class TopicExtractor:
     """
     Reviews থেকে important topics/keywords extract করে
     Frequency based approach ব্যবহার করে
+    
+    Note: STOP_WORDS এবং clean_text এখন utils.py তে আছে
     """
     
-    # Common words যেগুলো topic হিসেবে meaningful না
-    # এগুলো বাদ দেব
-    STOP_WORDS = {
-        'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-        'of', 'with', 'by', 'from', 'this', 'that', 'these', 'those', 'is',
-        'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had',
-        'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may',
-        'might', 'must', 'it', 'its', 'i', 'my', 'me', 'we', 'our', 'you',
-        'your', 'he', 'she', 'they', 'them', 'their', 'what', 'which', 'who',
-        'when', 'where', 'why', 'how', 'all', 'each', 'every', 'both', 'few',
-        'more', 'most', 'other', 'some', 'such', 'no', 'not', 'only', 'same',
-        'so', 'than', 'too', 'very', 'just', 'also', 'now', 'here', 'there',
-        'then', 'once', 'can', 'get', 'got', 'one', 'two', 'first', 'new',
-        'way', 'even', 'back', 'after', 'use', 'because', 'any', 'work',
-        'well', 'much', 'really', 'still', 'own', 'never', 'say', 'great',
-        'good', 'bad', 'best', 'worst', 'product', 'item', 'thing', 'buy',
-        'bought', 'purchase', 'purchased', 'recommend', 'recommended'
-    }
-    
     @staticmethod
-    def clean_text(text: str) -> str:
-        """
-        Text clean করে - lowercase, special chars remove
-        
-        Args:
-            text: Raw text to clean
-            
-        Returns:
-            Cleaned text
-        """
-        
-        # Lowercase এ convert করছি
-        text = text.lower()
-        
-        # শুধু letters এবং spaces রাখছি, বাকি সব remove
-        # [^a-z\s] মানে a-z এবং whitespace ছাড়া সব
-        text = re.sub(r'[^a-z\s]', '', text)
-        
-        # Multiple spaces কে single space এ convert করছি
-        text = re.sub(r'\s+', ' ', text)
-        
-        # Leading/trailing spaces remove করছি
-        return text.strip()
-    
-    @classmethod
     def extract_topics(
-        cls,
         reviews: List[str],
         sentiments: List[str],
         top_k: int = 5
@@ -317,18 +274,9 @@ class TopicExtractor:
         
         # প্রতিটা review process করছি
         for review, sentiment in zip(reviews, sentiments):
-            # Text clean করছি
-            cleaned = cls.clean_text(review)
-            
-            # Words এ split করছি
-            words = cleaned.split()
-            
-            # Stop words বাদ দিয়ে meaningful words রাখছি
-            # এবং minimum 3 character এর words নিচ্ছি
-            meaningful_words = [
-                word for word in words 
-                if word not in cls.STOP_WORDS and len(word) >= 3
-            ]
+            # utils.py এর extract_words ব্যবহার করছি
+            # এটা automatically clean করে, stop words বাদ দেয়
+            meaningful_words = extract_words(review, remove_stopwords=True, min_length=3)
             
             # Sentiment অনুযায়ী সঠিক list এ add করছি
             if sentiment == "positive":
