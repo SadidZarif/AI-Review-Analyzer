@@ -1,119 +1,177 @@
 // ============ API.TS ============
 // Backend API এর সাথে communicate করার জন্য সব functions এখানে
-// Frontend এর অন্য কোনো file এ direct fetch call থাকবে না
+// এই file থেকে অন্য components API call করবে
 
-// Backend এর base URL
-// Development এ localhost, production এ actual server URL হবে
+// ============ CONFIGURATION ============
+
+// Backend server এর base URL
+// Development এ localhost:8000, production এ actual server URL হবে
 const API_BASE_URL = "http://localhost:8000";
 
 
-// ============ TYPES ============
-// TypeScript types - data এর structure define করে
+// ============ TYPESCRIPT INTERFACES ============
+// এগুলো backend এর schemas.py এর সাথে match করে
+// TypeScript এ type safety দেয় - ভুল data structure হলে error দেখাবে
 
-// Single review এর result
-export interface ReviewResult {
-  text: string;           // original review text
-  sentiment: string;      // "positive" বা "negative"
-  confidence: number;     // 0.0 to 1.0
-}
-
-// Topic info
-export interface TopicInfo {
-  topic: string;          // keyword/topic name
-  count: number;          // কতবার দেখা গেছে
-  sentiment: string;      // "positive" বা "negative"
-}
-
-// Full analysis response from backend
-export interface AnalysisResponse {
-  total_reviews: number;
-  positive_count: number;
-  negative_count: number;
-  positive_percentage: number;
-  negative_percentage: number;
-  top_positive_topics: TopicInfo[];
-  top_negative_topics: TopicInfo[];
-  sample_reviews: ReviewResult[];
-}
-
-// Request body for analysis
-export interface AnalysisRequest {
+// ReviewRequest: Backend এ পাঠানো request এর structure
+// এটা /analyze-reviews endpoint এ POST করা হবে
+export interface ReviewRequest {
+  // reviews হলো strings এর array - user এর দেওয়া review texts
   reviews: string[];
-  product_link?: string;  // optional
+  
+  // Optional product link - Amazon/other product URL
+  // undefined হলে শুধু reviews analyze হবে
+  product_link?: string;
+}
+
+// ReviewResult: প্রতিটি individual review এর analysis result
+export interface ReviewResult {
+  // Original review text
+  text: string;
+  
+  // Predicted sentiment: "positive" বা "negative"
+  sentiment: "positive" | "negative";
+  
+  // Model এর confidence score (0.0 থেকে 1.0)
+  confidence: number;
+}
+
+// TopicInfo: Extract করা topic/keyword এর তথ্য
+export interface TopicInfo {
+  // Topic এর নাম (যেমন: "battery", "screen", "delivery")
+  topic: string;
+  
+  // এই topic কতবার এসেছে
+  count: number;
+  
+  // এই topic এর sentiment
+  sentiment: "positive" | "negative";
+}
+
+// AnalysisSummary: Overall analysis এর summary
+export interface AnalysisSummary {
+  // মোট reviews এর সংখ্যা
+  total: number;
+  
+  // Positive reviews এর সংখ্যা
+  positive_count: number;
+  
+  // Negative reviews এর সংখ্যা
+  negative_count: number;
+  
+  // Positive reviews এর percentage
+  positive_percentage: number;
+  
+  // Negative reviews এর percentage
+  negative_percentage: number;
+}
+
+// AnalysisResponse: Backend থেকে আসা complete response
+export interface AnalysisResponse {
+  // Overall summary
+  summary: AnalysisSummary;
+  
+  // প্রতিটি review এর detailed result
+  results: ReviewResult[];
+  
+  // Positive reviews থেকে extract করা top topics
+  positive_topics: TopicInfo[];
+  
+  // Negative reviews থেকে extract করা top topics
+  negative_topics: TopicInfo[];
+}
+
+// HealthResponse: Health check endpoint এর response
+export interface HealthResponse {
+  status: string;
+  message: string;
 }
 
 
 // ============ API FUNCTIONS ============
 
-/**
- * Health check - backend চালু আছে কিনা দেখে
- * @returns Promise with health status
- */
-export async function checkHealth(): Promise<{ status: string; message: string }> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/health`);
-    
-    if (!response.ok) {
-      throw new Error("Backend is not responding");
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error("Health check failed:", error);
-    throw error;
+// checkHealth: Backend server চালু আছে কিনা check করে
+// Dashboard এ server status দেখাতে ব্যবহার হবে
+export async function checkHealth(): Promise<HealthResponse> {
+  // fetch() হলো browser এর built-in function - HTTP request পাঠায়
+  // await দিয়ে response আসা পর্যন্ত wait করছি
+  const response = await fetch(`${API_BASE_URL}/health`);
+  
+  // response.ok হলো true যদি status 200-299 হয়
+  if (!response.ok) {
+    // Error হলে throw করছি - calling code এ catch করা যাবে
+    throw new Error(`Health check failed: ${response.status}`);
   }
+  
+  // JSON response কে JavaScript object এ convert করছি
+  // as HealthResponse দিয়ে TypeScript কে বলছি এটা কী type
+  return response.json() as Promise<HealthResponse>;
 }
 
 
-/**
- * Reviews analyze করে - main API call
- * @param reviews - Array of review texts
- * @param productLink - Optional product URL
- * @returns Promise with analysis results
- */
+// analyzeReviews: মূল analysis function
+// Reviews নিয়ে backend এ পাঠায়, analysis result ফেরত আনে
 export async function analyzeReviews(
   reviews: string[],
   productLink?: string
 ): Promise<AnalysisResponse> {
-  try {
-    // Request body তৈরি
-    const requestBody: AnalysisRequest = {
-      reviews: reviews,
-    };
+  
+  // Request body তৈরি করছি
+  const requestBody: ReviewRequest = {
+    reviews: reviews,
+    // productLink undefined না হলে add করছি
+    ...(productLink && { product_link: productLink }),
+  };
+  
+  // POST request পাঠাচ্ছি /analyze-reviews endpoint এ
+  const response = await fetch(`${API_BASE_URL}/analyze-reviews`, {
+    // HTTP method: POST (data পাঠাচ্ছি)
+    method: "POST",
     
-    // Product link থাকলে add করছি
-    if (productLink) {
-      requestBody.product_link = productLink;
-    }
+    // Headers বলছে আমরা JSON পাঠাচ্ছি
+    headers: {
+      "Content-Type": "application/json",
+    },
     
-    // API call
-    const response = await fetch(`${API_BASE_URL}/analyze-reviews`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    });
-    
-    // Error handling
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || "Analysis failed");
-    }
-    
-    // Success - return data
-    return await response.json();
-  } catch (error) {
-    console.error("Analysis failed:", error);
-    throw error;
+    // Body তে request data - JSON string এ convert করে পাঠাচ্ছি
+    body: JSON.stringify(requestBody),
+  });
+  
+  // Error handling
+  if (!response.ok) {
+    // Response থেকে error message বের করার চেষ্টা করছি
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage = errorData.detail || `Analysis failed: ${response.status}`;
+    throw new Error(errorMessage);
   }
+  
+  // Success হলে parsed response return করছি
+  return response.json() as Promise<AnalysisResponse>;
 }
 
 
-/**
- * API base URL পাওয়ার জন্য (debugging এ কাজে লাগে)
- */
-export function getApiBaseUrl(): string {
-  return API_BASE_URL;
+// ============ UTILITY FUNCTIONS ============
+
+// formatPercentage: Number কে percentage string এ convert করে
+// যেমন: 75.5 → "75.5%"
+export function formatPercentage(value: number): string {
+  return `${value.toFixed(1)}%`;
 }
 
+// formatConfidence: Confidence score কে readable format এ convert করে
+// যেমন: 0.856 → "85.6%"
+export function formatConfidence(value: number): string {
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+// getSentimentColor: Sentiment অনুযায়ী color return করে
+// UI তে positive/negative আলাদা color দেখাতে ব্যবহার হবে
+export function getSentimentColor(sentiment: "positive" | "negative"): string {
+  return sentiment === "positive" ? "#22c55e" : "#ef4444";
+  // Green for positive, Red for negative
+}
+
+// getSentimentEmoji: Sentiment অনুযায়ী emoji return করে
+export function getSentimentEmoji(sentiment: "positive" | "negative"): string {
+  return sentiment === "positive" ? "😊" : "😞";
+}
