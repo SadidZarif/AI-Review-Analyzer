@@ -68,7 +68,7 @@
 .settings-sidebar .logo-icon {
   width: 40px;
   height: 40px;
-  border-radius: 0.75rem;
+  border-radius: 1.25rem;
   background: linear-gradient(to bottom right, #135bec, #4f46e5);
   box-shadow: 0 0 15px rgba(19, 91, 236, 0.3);
   display: flex;
@@ -109,7 +109,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem;
-  border-radius: 0.75rem;
+  border-radius: 1.25rem;
   background: transparent;
   border: none;
   color: #94a3b8;
@@ -163,7 +163,7 @@
 .credits-card {
   margin-top: auto;
   padding: 1rem;
-  border-radius: 1rem;
+  border-radius: 1.25rem;
   background: linear-gradient(to bottom right, #1e293b, #0f172a);
   border: 1px solid rgba(255, 255, 255, 0.05);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
@@ -215,7 +215,7 @@
   color: #fff;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.5rem;
+  border-radius: 0.875rem;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -285,7 +285,7 @@
 
 .btn-cancel {
   padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
+  border-radius: 0.875rem;
   background: #1e293b;
   color: #cbd5e1;
   font-weight: 500;
@@ -303,7 +303,7 @@
 
 .btn-save {
   padding: 0.5rem 1.5rem;
-  border-radius: 0.5rem;
+  border-radius: 0.875rem;
   background: #135bec;
   color: #fff;
   font-weight: 700;
@@ -327,7 +327,7 @@
 /* ============ PROFILE CARD ============ */
 .profile-card {
   padding: 1.5rem;
-  border-radius: 1rem;
+  border-radius: 1.25rem;
   position: relative;
   overflow: hidden;
   background: rgba(26, 32, 44, 0.6);
@@ -501,7 +501,7 @@
   display: flex;
   align-items: center;
   background: #0d111a;
-  border-radius: 0.5rem;
+  border-radius: 0.875rem;
   border: 1px solid rgba(255, 255, 255, 0.05);
   padding: 0.25rem;
   box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.6);
@@ -600,7 +600,7 @@
 /* Integration Card */
 .integration-card {
   padding: 1.25rem;
-  border-radius: 1rem;
+  border-radius: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -633,7 +633,7 @@
   opacity: 0;
   transition: opacity 0.3s;
   pointer-events: none;
-  border-radius: 1rem;
+  border-radius: 1.25rem;
 }
 
 .integration-card:hover .card-shine {
@@ -650,7 +650,7 @@
 .integration-icon {
   width: 56px;
   height: 56px;
-  border-radius: 0.75rem;
+  border-radius: 1.25rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -741,7 +741,7 @@
   padding: 0.5rem;
   background: #0d111a;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.5rem;
+  border-radius: 0.875rem;
   color: #cbd5e1;
   font-size: 0.875rem;
   font-weight: 500;
@@ -759,7 +759,7 @@
   padding: 0.5rem;
   background: #0d111a;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.5rem;
+  border-radius: 0.875rem;
   color: #22c55e;
   cursor: pointer;
   transition: all 0.2s;
@@ -779,7 +779,7 @@
   padding: 0.5rem;
   background: rgba(19, 91, 236, 0.2);
   border: 1px solid rgba(19, 91, 236, 0.3);
-  border-radius: 0.5rem;
+  border-radius: 0.875rem;
   color: #135bec;
   font-size: 0.875rem;
   font-weight: 700;
@@ -797,7 +797,7 @@
   padding: 0.5rem;
   background: #1e293b;
   border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 0.5rem;
+  border-radius: 0.875rem;
   color: #64748b;
   font-size: 0.875rem;
   font-weight: 500;
@@ -820,7 +820,7 @@
 /* Settings Card */
 .settings-card {
   padding: 1.5rem;
-  border-radius: 1rem;
+  border-radius: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -959,7 +959,7 @@
   width: 100%;
   height: 8px;
   background: #334155;
-  border-radius: 0.5rem;
+  border-radius: 0.875rem;
   appearance: none;
   cursor: pointer;
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
@@ -1000,7 +1000,7 @@
   padding: 0.5rem 0.75rem;
   font-size: 0.75rem;
   font-weight: 700;
-  border-radius: 0.5rem;
+  border-radius: 0.875rem;
   cursor: pointer;
   transition: all 0.2s;
   background: #1e293b;
@@ -1028,7 +1028,7 @@
   color: #fff;
   background: #0d111a;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.5rem;
+  border-radius: 0.875rem;
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
   transition: all 0.2s;
 }

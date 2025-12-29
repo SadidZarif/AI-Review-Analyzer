@@ -1,7 +1,7 @@
 // ============ TREND CHART COMPONENT ============
 // SVG-based sentiment trend chart - area chart with gradient fill
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { generateWeeklyTrendData, generateMonthlyTrendData, type TrendDataPoint } from '../utils/mockData';
 
 type TimePeriod = 'week' | 'month' | 'year';
@@ -27,6 +27,13 @@ function TrendChart() {
     }
   }, [period]);
   
+  // Dashed comparison line এর জন্য random offsets
+  // useMemo MUST be called before any conditional returns (React hooks rule)
+  const compareOffsets = useMemo(() => {
+    return data.map(() => 5 + Math.random() * 10);
+  }, [data]);
+  
+  // Data না থাকলে null return করছি
   if (data.length === 0) return null;
   
   // Chart dimensions
@@ -36,17 +43,18 @@ function TrendChart() {
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
   
-  // Data scaling
-  const maxScore = Math.max(...data.map(d => d.sentimentScore));
-  const minScore = Math.min(...data.map(d => d.sentimentScore));
-  const scoreRange = maxScore - minScore || 1;
+  // FIXED: Absolute 0-100 scale ব্যবহার করছি
+  // আগে relative min-max ব্যবহার করতাম যেটা wrong position দেখাতো
+  // এখন fixed 0-100 এর মধ্যে score কে chart height এ map করছি
   
   // Points calculate করছি
   const xStep = chartWidth / (data.length - 1);
   const points = data.map((d, i) => {
     const x = padding.left + (i * xStep);
-    const normalizedScore = (d.sentimentScore - minScore) / scoreRange;
-    const y = padding.top + chartHeight - (normalizedScore * chartHeight * 0.8) - (chartHeight * 0.1);
+    // Fixed: 0-100 এর মধ্যে score কে chart height এ map করছি
+    // 84 score → 0.84 → chart এর 84% উচ্চতায়
+    const normalizedScore = d.sentimentScore / 100;
+    const y = padding.top + chartHeight - (normalizedScore * chartHeight);
     return { x, y, data: d };
   });
   
@@ -66,9 +74,13 @@ function TrendChart() {
   const areaPathD = `${pathD} L ${points[points.length - 1].x} ${height - padding.bottom} L ${padding.left} ${height - padding.bottom} Z`;
   
   // Dashed comparison line (mock previous period)
+  // আগের period এর data simulate করছি - 5-15 points কম score
   const comparePathD = points.map((p, i) => {
-    const offset = 20 + Math.random() * 40; // Random offset for demo
-    return `${i === 0 ? 'M' : 'L'} ${p.x} ${Math.min(p.y + offset, height - padding.bottom - 10)}`;
+    // Score 5-15 points কম ধরে নিচ্ছি আগের period এর জন্য
+    const prevPeriodScore = Math.max(0, data[i].sentimentScore - compareOffsets[i]);
+    const normalizedPrevScore = prevPeriodScore / 100;
+    const compareY = padding.top + chartHeight - (normalizedPrevScore * chartHeight);
+    return `${i === 0 ? 'M' : 'L'} ${p.x} ${compareY}`;
   }).join(' ');
   
   // Mouse move handler - tooltip position update করছি
@@ -77,7 +89,6 @@ function TrendChart() {
     
     const rect = chartRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
     
     // নিকটতম data point খুঁজে বের করছি
     let nearest = points[0];

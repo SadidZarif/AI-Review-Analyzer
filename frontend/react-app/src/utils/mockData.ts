@@ -187,19 +187,32 @@ export function generateMockReviewer(): MockReviewer {
 export interface MockMetrics {
   sentimentScore: number;    // Overall sentiment score (0-100)
   totalReviews: number;      // Total reviews count
+  positiveReviews: number;   // Positive reviews count
+  negativeReviews: number;   // Negative reviews count
   pendingActions: number;    // Pending actions count
   weeklyChange: number;      // Weekly change percentage
   newReviews: number;        // New reviews this week
+  positiveChange: number;    // Positive reviews weekly change
+  negativeChange: number;    // Negative reviews weekly change
 }
 
 // Mock metrics data generate করে
 export function generateMockMetrics(): MockMetrics {
+  const totalReviews = Math.floor(1000 + Math.random() * 500); // 1000-1500
+  const sentimentScore = Math.floor(75 + Math.random() * 20); // 75-95
+  const positiveReviews = Math.floor((sentimentScore / 100) * totalReviews);
+  const negativeReviews = totalReviews - positiveReviews;
+  
   return {
-    sentimentScore: Math.floor(75 + Math.random() * 20), // 75-95
-    totalReviews: Math.floor(1000 + Math.random() * 500), // 1000-1500
+    sentimentScore,
+    totalReviews,
+    positiveReviews,
+    negativeReviews,
     pendingActions: Math.floor(2 + Math.random() * 8), // 2-10
     weeklyChange: parseFloat((Math.random() * 10 - 2).toFixed(1)), // -2 to +8
-    newReviews: Math.floor(80 + Math.random() * 60) // 80-140
+    newReviews: Math.floor(80 + Math.random() * 60), // 80-140
+    positiveChange: parseFloat((Math.random() * 8 + 2).toFixed(1)), // +2 to +10
+    negativeChange: parseFloat((Math.random() * 5 - 8).toFixed(1)) // -8 to -3
   };
 }
 

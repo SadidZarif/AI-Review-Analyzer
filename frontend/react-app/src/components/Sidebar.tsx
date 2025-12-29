@@ -8,18 +8,18 @@ import '../styles/Sidebar.css';
 // Navigation item এর structure
 interface NavItem {
   label: string;      // Display text
-  icon: string;       // Emoji icon
+  icon: string;       // Material Symbols icon name
   path: string;       // Route path
   badge?: boolean;    // Badge indicator দেখাবে কিনা
 }
 
-// Navigation items এর list
+// Navigation items এর list - Material Symbols icons ব্যবহার করছি
 const navItems: NavItem[] = [
-  { label: 'Dashboard', icon: '📊', path: '/' },
-  { label: 'Products', icon: '📦', path: '/inventory' },
-  { label: 'Reviews', icon: '⭐', path: '/reviews' },
-  { label: 'Analysis', icon: '🧠', path: '/analysis', badge: true },
-  { label: 'Campaigns', icon: '📢', path: '/campaigns' },
+  { label: 'Dashboard', icon: 'dashboard', path: '/' },
+  { label: 'Products', icon: 'inventory_2', path: '/inventory' },
+  { label: 'Reviews', icon: 'reviews', path: '/reviews' },
+  { label: 'Analysis', icon: 'analytics', path: '/analysis', badge: true },
+  { label: 'Campaigns', icon: 'campaign', path: '/campaigns' },
 ];
 
 function Sidebar() {
@@ -35,7 +35,7 @@ function Sidebar() {
         {/* Logo Section */}
         <div className="sidebar-logo">
           <div className="logo-icon">
-            📊
+            <span className="material-symbols-outlined">view_in_ar</span>
           </div>
           {isExpanded && (
             <h1 className="logo-text">ReviewAI</h1>
@@ -52,7 +52,7 @@ function Sidebar() {
               title={!isExpanded ? item.label : ''}
             >
               <div className="nav-item-inner">
-                <span className="nav-icon">{item.icon}</span>
+                <span className="nav-icon material-symbols-outlined">{item.icon}</span>
                 {isExpanded && (
                   <>
                     <span className="nav-label">{item.label}</span>
@@ -76,7 +76,7 @@ function Sidebar() {
           title={!isExpanded ? 'Settings' : ''}
         >
           <div className="nav-item-inner">
-            <span className="nav-icon">⚙️</span>
+            <span className="nav-icon material-symbols-outlined">settings</span>
             {isExpanded && <span className="nav-label">Settings</span>}
           </div>
         </Link>
@@ -100,7 +100,9 @@ function Sidebar() {
           onClick={() => setIsExpanded(!isExpanded)}
           aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
         >
-          {isExpanded ? '◀' : '▶'}
+          <span className="material-symbols-outlined">
+            {isExpanded ? 'chevron_left' : 'chevron_right'}
+          </span>
         </button>
       </div>
     </aside>

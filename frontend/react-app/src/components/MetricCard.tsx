@@ -5,8 +5,9 @@ interface MetricCardProps {
   label: string;              // Card এর label (e.g., "Sentiment Score")
   value: string | number;     // Main value to display
   unit?: string;              // Optional unit (e.g., "/100")
-  icon: string;               // Emoji icon
+  icon: string;               // Material Symbols icon name
   iconColor: string;          // Icon background gradient color
+  iconTextColor?: string;     // Icon এর actual color (text color)
   changeValue?: string;       // Change indicator (e.g., "+5.2%")
   changeLabel?: string;       // Change label (e.g., "vs last week")
   changeType?: 'positive' | 'negative' | 'neutral';  // Change type
@@ -21,6 +22,7 @@ function MetricCard({
   unit,
   icon,
   iconColor,
+  iconTextColor = '#fff',
   changeValue,
   changeLabel,
   changeType = 'neutral',
@@ -45,9 +47,9 @@ function MetricCard({
   
   return (
     <div className="metric-card glass-panel">
-      {/* Icon - Top right corner */}
+      {/* Icon - Top right corner - Material Symbols icon */}
       <div className="metric-icon" style={{ background: iconColor }}>
-        <span>{icon}</span>
+        <span className="material-symbols-outlined" style={{ color: iconTextColor }}>{icon}</span>
       </div>
       
       <div className="metric-content">

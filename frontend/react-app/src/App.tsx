@@ -31,7 +31,7 @@ function Analysis() {
       minHeight: '60vh',
       textAlign: 'center'
     }}>
-      <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🧠</div>
+      <span className="material-symbols-outlined" style={{ fontSize: '4rem', marginBottom: '1rem', color: 'var(--primary)' }}>analytics</span>
       <h1 style={{ marginBottom: '0.5rem' }}>Analysis</h1>
       <p style={{ color: 'var(--text-secondary)' }}>Coming soon...</p>
     </div>
@@ -50,7 +50,7 @@ function Campaigns() {
       minHeight: '60vh',
       textAlign: 'center'
     }}>
-      <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📢</div>
+      <span className="material-symbols-outlined" style={{ fontSize: '4rem', marginBottom: '1rem', color: 'var(--primary)' }}>campaign</span>
       <h1 style={{ marginBottom: '0.5rem' }}>Campaigns</h1>
       <p style={{ color: 'var(--text-secondary)' }}>Coming soon...</p>
     </div>

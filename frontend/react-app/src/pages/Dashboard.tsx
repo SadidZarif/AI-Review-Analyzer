@@ -85,14 +85,14 @@ function Dashboard() {
         <div className="header-actions">
           {/* Date Picker (UI only - functionality TODO) */}
           <button className="date-picker-btn">
-            <span>📅</span>
+            <span className="material-symbols-outlined">calendar_month</span>
             <span>Oct 2023</span>
-            <span>▼</span>
+            <span className="material-symbols-outlined">arrow_drop_down</span>
           </button>
           
           {/* Export Button */}
           <button className="export-btn" onClick={handleExportReport}>
-            <span>📥</span>
+            <span className="material-symbols-outlined">download</span>
             <span>Export Report</span>
           </button>
         </div>
@@ -101,13 +101,14 @@ function Dashboard() {
       
       {/* ========== METRICS ROW ========== */}
       <section className="metrics-section">
-        {/* Sentiment Score Card */}
+        {/* Sentiment Score Card - Green theme */}
         <MetricCard
           label="SENTIMENT SCORE"
           value={mockMetrics.sentimentScore}
           unit="/100"
-          icon="😊"
-          iconColor="linear-gradient(135deg, rgba(34, 197, 94, 0.2), transparent)"
+          icon="sentiment_satisfied"
+          iconColor="linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05))"
+          iconTextColor="#22c55e"
           changeValue={formatPercentageChange(mockMetrics.weeklyChange)}
           changeLabel="vs last week"
           changeType={mockMetrics.weeklyChange >= 0 ? 'positive' : 'negative'}
@@ -115,34 +116,64 @@ function Dashboard() {
           progressType="positive"
         />
         
-        {/* Review Volume Card */}
+        {/* Review Volume Card - Blue theme */}
         <MetricCard
           label="REVIEW VOLUME"
           value={formatNumber(mockMetrics.totalReviews)}
-          icon="📊"
-          iconColor="linear-gradient(135deg, rgba(59, 130, 246, 0.2), transparent)"
+          icon="bar_chart"
+          iconColor="linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.05))"
+          iconTextColor="#3b82f6"
           changeValue={`+${mockMetrics.newReviews}`}
           changeLabel="new reviews"
           changeType="positive"
           miniChart={
-            // Mini chart bars
+            // Mini chart bars - Blue colored
             <div className="mini-chart-bars">
-              <div className="bar" style={{ height: '30%', opacity: 0.3 }}></div>
-              <div className="bar" style={{ height: '40%', opacity: 0.4 }}></div>
-              <div className="bar" style={{ height: '60%', opacity: 0.6 }}></div>
-              <div className="bar" style={{ height: '80%', opacity: 0.8 }}></div>
-              <div className="bar" style={{ height: '100%', opacity: 1 }}></div>
-              <div className="bar" style={{ height: '20%', opacity: 0.2 }}></div>
+              <div className="bar" style={{ height: '30%', opacity: 0.3, background: '#3b82f6' }}></div>
+              <div className="bar" style={{ height: '40%', opacity: 0.4, background: '#3b82f6' }}></div>
+              <div className="bar" style={{ height: '60%', opacity: 0.6, background: '#3b82f6' }}></div>
+              <div className="bar" style={{ height: '80%', opacity: 0.8, background: '#3b82f6' }}></div>
+              <div className="bar" style={{ height: '100%', opacity: 1, background: '#3b82f6' }}></div>
+              <div className="bar" style={{ height: '20%', opacity: 0.2, background: '#3b82f6' }}></div>
             </div>
           }
         />
         
-        {/* Pending Actions Card */}
+        {/* Positive Reviews Card - Green theme */}
+        <MetricCard
+          label="POSITIVE REVIEWS"
+          value={formatNumber(mockMetrics.positiveReviews)}
+          icon="thumb_up"
+          iconColor="linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05))"
+          iconTextColor="#22c55e"
+          changeValue={`+${mockMetrics.positiveChange}%`}
+          changeLabel="vs last week"
+          changeType="positive"
+          progressValue={(mockMetrics.positiveReviews / mockMetrics.totalReviews) * 100}
+          progressType="positive"
+        />
+        
+        {/* Negative Reviews Card - Red theme */}
+        <MetricCard
+          label="NEGATIVE REVIEWS"
+          value={formatNumber(mockMetrics.negativeReviews)}
+          icon="thumb_down"
+          iconColor="linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05))"
+          iconTextColor="#ef4444"
+          changeValue={`${mockMetrics.negativeChange}%`}
+          changeLabel="vs last week"
+          changeType="positive"
+          progressValue={(mockMetrics.negativeReviews / mockMetrics.totalReviews) * 100}
+          progressType="negative"
+        />
+        
+        {/* Pending Actions Card - Orange theme */}
         <MetricCard
           label="PENDING ACTIONS"
           value={mockMetrics.pendingActions}
-          icon="⚠️"
-          iconColor="linear-gradient(135deg, rgba(245, 158, 11, 0.2), transparent)"
+          icon="pending_actions"
+          iconColor="linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05))"
+          iconTextColor="#f59e0b"
           changeValue="Urgent"
           changeLabel="negatives need reply"
           changeType="negative"
@@ -166,56 +197,63 @@ function Dashboard() {
           <TrendChart />
         </div>
         
-        {/* AI Insight Box (1/3 width) */}
+        {/* AI Insight Box (1/3 width) - Gradient border effect */}
         <div className="ai-insight-modern">
-          <div className="ai-insight-header">
-            <div className="ai-badge">
-              <span>✨</span>
+          {/* Inner wrapper - dark background */}
+          <div className="ai-insight-inner">
+            <div className="ai-insight-header">
+              <div className="ai-badge">
+                <span className="material-symbols-outlined">auto_awesome</span>
+              </div>
+              <h3>AI SUMMARY</h3>
             </div>
-            <h3>AI SUMMARY</h3>
-          </div>
-          
-          {/* AI Visual */}
-          <div className="ai-visual-box">
-            <div className="ai-visual-content">
-              <div className="ai-icon-large">🤖</div>
-              <p className="ai-status">ANALYZING CLUSTERS...</p>
-              <div className="ai-progress-bar">
-                <div className="ai-progress-fill"></div>
+            
+            {/* AI Visual */}
+            <div className="ai-visual-box">
+              <div className="ai-visual-content">
+                <img 
+                  src="/src/assets/images/ai.png" 
+                  alt="AI Assistant" 
+                  className="ai-image"
+                />
+                <p className="ai-status">ANALYZING CLUSTERS...</p>
+                <div className="ai-progress-bar">
+                  <div className="ai-progress-fill"></div>
+                </div>
               </div>
             </div>
+            
+            {/* AI Insight Text */}
+            {results ? (
+              <>
+                <h4 className="ai-insight-title">
+                  {results.positive_percentage >= 50
+                    ? 'Battery Life Praise'
+                    : 'Areas Need Improvement'
+                  }
+                </h4>
+                <p className="ai-insight-description">
+                  Customers are consistently mentioning the{' '}
+                  <span className="highlight">extended battery life</span> as a
+                  key selling point this week.
+                </p>
+              </>
+            ) : (
+              <>
+                <h4 className="ai-insight-title">Ready to Analyze</h4>
+                <p className="ai-insight-description">
+                  Enter product reviews to get AI-powered insights about customer
+                  sentiment and trending topics.
+                </p>
+              </>
+            )}
+            
+            {/* Deep Dive Button */}
+            <button className="deep-dive-btn">
+              <span>View Deep Dive</span>
+              <span className="material-symbols-outlined">arrow_forward</span>
+            </button>
           </div>
-          
-          {/* AI Insight Text */}
-          {results ? (
-            <>
-              <h4 className="ai-insight-title">
-                {results.positive_percentage >= 50
-                  ? 'Battery Life Praise'
-                  : 'Areas Need Improvement'
-                }
-              </h4>
-              <p className="ai-insight-description">
-                Customers are consistently mentioning the{' '}
-                <span className="highlight">extended battery life</span> as a
-                key selling point this week.
-              </p>
-            </>
-          ) : (
-            <>
-              <h4 className="ai-insight-title">Ready to Analyze</h4>
-              <p className="ai-insight-description">
-                Enter product reviews to get AI-powered insights about customer
-                sentiment and trending topics.
-              </p>
-            </>
-          )}
-          
-          {/* Deep Dive Button */}
-          <button className="deep-dive-btn">
-            <span>View Deep Dive</span>
-            <span>→</span>
-          </button>
         </div>
       </section>
       
@@ -262,7 +300,7 @@ function Dashboard() {
           ) : (
             // No reviews yet - placeholder
             <div className="no-reviews-placeholder">
-              <div className="placeholder-icon">📝</div>
+              <span className="material-symbols-outlined placeholder-icon">rate_review</span>
               <h4>No Reviews Yet</h4>
               <p>
                 Start analyzing reviews to see them here with AI-powered
@@ -323,7 +361,7 @@ function Dashboard() {
           {/* View Full Report Button */}
           <button className="view-report-btn">
             VIEW FULL REPORT
-            <span>↗</span>
+            <span className="material-symbols-outlined">open_in_new</span>
           </button>
         </div>
       </section>

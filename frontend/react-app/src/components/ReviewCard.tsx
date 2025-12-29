@@ -70,9 +70,24 @@ function ReviewCard({
         
         {/* Sentiment Badge */}
         <span className={`sentiment-badge ${sentimentColors[sentiment]}`}>
-          {sentiment === 'positive' && '😊 Positive'}
-          {sentiment === 'negative' && '😞 Negative'}
-          {sentiment === 'neutral' && '😐 Neutral'}
+          {sentiment === 'positive' && (
+            <>
+              <span className="material-symbols-outlined sentiment-icon">sentiment_satisfied</span>
+              Positive
+            </>
+          )}
+          {sentiment === 'negative' && (
+            <>
+              <span className="material-symbols-outlined sentiment-icon">sentiment_dissatisfied</span>
+              Negative
+            </>
+          )}
+          {sentiment === 'neutral' && (
+            <>
+              <span className="material-symbols-outlined sentiment-icon">sentiment_neutral</span>
+              Neutral
+            </>
+          )}
         </span>
       </div>
       

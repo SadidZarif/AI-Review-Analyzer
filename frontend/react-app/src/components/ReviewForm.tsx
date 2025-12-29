@@ -162,7 +162,8 @@ function ReviewForm({ onAnalysisComplete, onLoadingChange }: ReviewFormProps) {
         {/* error null না হলে error message দেখাবে */}
         {error && (
           <div className="error-message">
-            ⚠️ {error}
+            <span className="material-symbols-outlined">warning</span>
+            {error}
           </div>
         )}
         
@@ -173,7 +174,17 @@ function ReviewForm({ onAnalysisComplete, onLoadingChange }: ReviewFormProps) {
           className="submit-button"
         >
           {/* Loading হলে different text দেখাবে */}
-          {isLoading ? '🔄 Analyzing...' : '🔍 Analyze Reviews'}
+          {isLoading ? (
+            <>
+              <span className="material-symbols-outlined spinning">sync</span>
+              Analyzing...
+            </>
+          ) : (
+            <>
+              <span className="material-symbols-outlined">search</span>
+              Analyze Reviews
+            </>
+          )}
         </button>
         
       </form>

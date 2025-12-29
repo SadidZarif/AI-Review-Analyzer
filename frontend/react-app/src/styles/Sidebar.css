@@ -45,13 +45,17 @@
 .logo-icon {
   width: 2.5rem;
   height: 2.5rem;
-  border-radius: 0.75rem;
-  background: linear-gradient(135deg, var(--primary), #3b82f6);
+  border-radius: 1rem;
+  background: linear-gradient(135deg, var(--primary), #4f46e5);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
   box-shadow: var(--glow);
+}
+
+.logo-icon .material-symbols-outlined {
+  color: #fff;
+  font-size: 1.5rem;
 }
 
 .logo-text {
@@ -81,7 +85,7 @@
   display: block;
   text-decoration: none;
   color: var(--text-secondary);
-  border-radius: 0.75rem;
+  border-radius: 1rem;
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
@@ -104,8 +108,19 @@
 
 /* Icon */
 .nav-icon {
-  font-size: 1.25rem;
+  font-size: 1.375rem;
   flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+/* Hover এ icon scale up */
+.nav-item:hover .nav-icon {
+  transform: scale(1.1);
+}
+
+/* Active state এ icon color */
+.nav-item.active .nav-icon {
+  color: #fff;
 }
 
 /* Label - collapsed এ hide */
@@ -227,13 +242,18 @@
   padding: 0.5rem;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border);
-  border-radius: 0.5rem;
+  border-radius: 0.875rem;
   color: var(--text-secondary);
-  font-size: 0.875rem;
   cursor: pointer;
   transition: all 0.2s ease;
   width: 100%;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-toggle .material-symbols-outlined {
+  font-size: 1.25rem;
 }
 
 .sidebar-toggle:hover {
