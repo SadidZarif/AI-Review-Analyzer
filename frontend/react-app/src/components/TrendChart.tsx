@@ -1,0 +1,248 @@
+// ============ TREND CHART COMPONENT ============
+// SVG-based sentiment trend chart - area chart with gradient fill
+
+import { useState, useRef, useEffect } from 'react';
+import { generateWeeklyTrendData, generateMonthlyTrendData, type TrendDataPoint } from '../utils/mockData';
+
+type TimePeriod = 'week' | 'month' | 'year';
+
+function TrendChart() {
+  // State management
+  const [period, setPeriod] = useState<TimePeriod>('week');
+  const [data, setData] = useState<TrendDataPoint[]>([]);
+  const [hoveredPoint, setHoveredPoint] = useState<TrendDataPoint | null>(null);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  
+  const chartRef = useRef<HTMLDivElement>(null);
+  
+  // Period change হলে নতুন data load করছি
+  useEffect(() => {
+    if (period === 'week') {
+      setData(generateWeeklyTrendData());
+    } else if (period === 'month') {
+      setData(generateMonthlyTrendData());
+    } else {
+      // Year data (same as month for now)
+      setData(generateMonthlyTrendData());
+    }
+  }, [period]);
+  
+  if (data.length === 0) return null;
+  
+  // Chart dimensions
+  const width = 800;
+  const height = 300;
+  const padding = { top: 20, right: 20, bottom: 40, left: 40 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  
+  // Data scaling
+  const maxScore = Math.max(...data.map(d => d.sentimentScore));
+  const minScore = Math.min(...data.map(d => d.sentimentScore));
+  const scoreRange = maxScore - minScore || 1;
+  
+  // Points calculate করছি
+  const xStep = chartWidth / (data.length - 1);
+  const points = data.map((d, i) => {
+    const x = padding.left + (i * xStep);
+    const normalizedScore = (d.sentimentScore - minScore) / scoreRange;
+    const y = padding.top + chartHeight - (normalizedScore * chartHeight * 0.8) - (chartHeight * 0.1);
+    return { x, y, data: d };
+  });
+  
+  // SVG path string তৈরি করছি (smooth curve)
+  let pathD = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1];
+    const curr = points[i];
+    const cp1x = prev.x + (curr.x - prev.x) / 3;
+    const cp1y = prev.y;
+    const cp2x = curr.x - (curr.x - prev.x) / 3;
+    const cp2y = curr.y;
+    pathD += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${curr.x} ${curr.y}`;
+  }
+  
+  // Area path (filled region)
+  const areaPathD = `${pathD} L ${points[points.length - 1].x} ${height - padding.bottom} L ${padding.left} ${height - padding.bottom} Z`;
+  
+  // Dashed comparison line (mock previous period)
+  const comparePathD = points.map((p, i) => {
+    const offset = 20 + Math.random() * 40; // Random offset for demo
+    return `${i === 0 ? 'M' : 'L'} ${p.x} ${Math.min(p.y + offset, height - padding.bottom - 10)}`;
+  }).join(' ');
+  
+  // Mouse move handler - tooltip position update করছি
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!chartRef.current) return;
+    
+    const rect = chartRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // নিকটতম data point খুঁজে বের করছি
+    let nearest = points[0];
+    let minDist = Math.abs(x - points[0].x);
+    
+    for (const point of points) {
+      const dist = Math.abs(x - point.x);
+      if (dist < minDist) {
+        minDist = dist;
+        nearest = point;
+      }
+    }
+    
+    // যদি mouse chart area তে থাকে
+    if (x >= padding.left && x <= width - padding.right) {
+      setHoveredPoint(nearest.data);
+      setMousePos({ x: nearest.x, y: nearest.y });
+    } else {
+      setHoveredPoint(null);
+    }
+  };
+  
+  return (
+    <div className="trend-chart-container">
+      {/* Header */}
+      <div className="trend-chart-header">
+        <div>
+          <h3 className="chart-title">Sentiment Trend</h3>
+          <p className="chart-subtitle">Review volume vs. positive sentiment</p>
+        </div>
+        
+        {/* Period Toggle Buttons */}
+        <div className="period-toggle">
+          <button
+            className={period === 'week' ? 'active' : ''}
+            onClick={() => setPeriod('week')}
+          >
+            Week
+          </button>
+          <button
+            className={period === 'month' ? 'active' : ''}
+            onClick={() => setPeriod('month')}
+          >
+            Month
+          </button>
+          <button
+            className={period === 'year' ? 'active' : ''}
+            onClick={() => setPeriod('year')}
+          >
+            Year
+          </button>
+        </div>
+      </div>
+      
+      {/* Chart SVG */}
+      <div className="chart-wrapper" ref={chartRef}>
+        <svg
+          width="100%"
+          height="100%"
+          viewBox={`0 0 ${width} ${height}`}
+          preserveAspectRatio="xMidYMid meet"
+          onMouseMove={handleMouseMove}
+          onMouseLeave={() => setHoveredPoint(null)}
+        >
+          <defs>
+            {/* Gradient for area fill */}
+            <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#135bec" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="#135bec" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          
+          {/* Grid Lines */}
+          <g className="grid-lines">
+            {[0, 25, 50, 75, 100].map(val => {
+              const y = padding.top + chartHeight - (val / 100 * chartHeight);
+              return (
+                <g key={val}>
+                  <line
+                    x1={padding.left}
+                    y1={y}
+                    x2={width - padding.right}
+                    y2={y}
+                    stroke="rgba(255,255,255,0.05)"
+                    strokeWidth="1"
+                  />
+                  <text
+                    x={padding.left - 10}
+                    y={y + 4}
+                    textAnchor="end"
+                    fill="#64748b"
+                    fontSize="10"
+                  >
+                    {val}
+                  </text>
+                </g>
+              );
+            })}
+          </g>
+          
+          {/* Area (filled) */}
+          <path
+            d={areaPathD}
+            fill="url(#chartGradient)"
+          />
+          
+          {/* Main Line */}
+          <path
+            d={pathD}
+            fill="none"
+            stroke="#135bec"
+            strokeWidth="4"
+            strokeLinecap="round"
+            filter="drop-shadow(0 0 8px rgba(19, 91, 236, 0.5))"
+          />
+          
+          {/* Comparison Line (dashed) */}
+          <path
+            d={comparePathD}
+            fill="none"
+            stroke="#64748b"
+            strokeWidth="2"
+            strokeDasharray="6,6"
+          />
+          
+          {/* Hover Point Indicator */}
+          {hoveredPoint && (
+            <circle
+              cx={mousePos.x}
+              cy={mousePos.y}
+              r="6"
+              fill="#135bec"
+              stroke="white"
+              strokeWidth="2"
+            />
+          )}
+        </svg>
+        
+        {/* Tooltip - hover করলে দেখাবে */}
+        {hoveredPoint && (
+          <div
+            className="chart-tooltip"
+            style={{
+              left: `${mousePos.x}px`,
+              top: `${mousePos.y - 60}px`
+            }}
+          >
+            <p className="tooltip-date">{hoveredPoint.date}</p>
+            <div className="tooltip-value">
+              <div className="tooltip-indicator"></div>
+              <span className="tooltip-score">{hoveredPoint.sentimentScore} Score</span>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* X-axis Labels */}
+      <div className="chart-labels">
+        {data.slice(0, 7).map((d, i) => (
+          <span key={i}>{d.day}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default TrendChart;
+

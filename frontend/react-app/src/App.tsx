@@ -1,63 +1,59 @@
 // ============ APP.TSX ============
-// Main application component
-// এখানে routing এবং navigation setup আছে
+// Main application component - Sidebar layout এবং routing setup
 
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
-// Pages import (temporarily commented - files এ code হলে uncomment করবে)
-// import Dashboard from './pages/Dashboard';
-// import Inventory from './pages/Inventory';
-// import Settings from './pages/Settings';
-// import ReviewDetails from './pages/ReviewDetails';
+// Components
+import Sidebar from './components/Sidebar';
+
+// Pages import
+import Dashboard from './pages/Dashboard';
+import ReviewDetails from './pages/ReviewDetails';
+import Inventory from './pages/Inventory';
+import Settings from './pages/Settings';
 
 // Global styles
 import './index.css';
 
 
-// ============ TEMPORARY PLACEHOLDER COMPONENTS ============
-// যখন actual pages তৈরি হবে, এগুলো delete করে উপরের imports uncomment করবে
+// ============ PLACEHOLDER COMPONENTS ============
+// এগুলো পরে implement করা হবে
 
-function Dashboard() {
-  return <div><h1>Dashboard</h1><p>Coming soon...</p></div>;
-}
-
-function Inventory() {
-  return <div><h1>Inventory</h1><p>Coming soon...</p></div>;
-}
-
-function Settings() {
-  return <div><h1>Settings</h1><p>Coming soon...</p></div>;
-}
-
-function ReviewDetails() {
-  return <div><h1>Review Details</h1><p>Coming soon...</p></div>;
-}
-
-
-// ============ NAVIGATION COMPONENT ============
-// সব pages এ common navigation bar
-
-function Navigation() {
+function Analysis() {
   return (
-    <nav className="navbar">
-      {/* Logo / Brand */}
-      <div className="nav-brand">
-        <Link to="/">🔍 AI Review Analyzer</Link>
-      </div>
-      
-      {/* Navigation Links */}
-      <ul className="nav-links">
-        <li>
-          <Link to="/">Dashboard</Link>
-        </li>
-        <li>
-          <Link to="/inventory">Inventory</Link>
-        </li>
-        <li>
-          <Link to="/settings">Settings</Link>
-        </li>
-      </ul> 
-    </nav>
+    <div style={{
+      padding: '2rem',
+      color: '#fff',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '60vh',
+      textAlign: 'center'
+    }}>
+      <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🧠</div>
+      <h1 style={{ marginBottom: '0.5rem' }}>Analysis</h1>
+      <p style={{ color: 'var(--text-secondary)' }}>Coming soon...</p>
+    </div>
+  );
+}
+
+function Campaigns() {
+  return (
+    <div style={{
+      padding: '2rem',
+      color: '#fff',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '60vh',
+      textAlign: 'center'
+    }}>
+      <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📢</div>
+      <h1 style={{ marginBottom: '0.5rem' }}>Campaigns</h1>
+      <p style={{ color: 'var(--text-secondary)' }}>Coming soon...</p>
+    </div>
   );
 }
 
@@ -66,36 +62,42 @@ function Navigation() {
 
 function App() {
   return (
-    // Router wrap করছে পুরো app কে
-    // এটা URL based navigation enable করে
     <Router>
+      {/* App Container - Sidebar + Main Content */}
       <div className="app">
-        {/* Navigation bar - সব pages এ দেখাবে */}
-        <Navigation />
+        {/* Decorative Background Glows */}
+        <div className="bg-glow bg-glow-primary"></div>
+        <div className="bg-glow bg-glow-secondary"></div>
         
-        {/* Main content area */}
+        {/* Sidebar Navigation */}
+        <Sidebar />
+        
+        {/* Main Content Area */}
         <main className="main-content">
-          {/* Routes define করছে কোন URL এ কোন page দেখাবে */}
+          {/* Routes - URL এ কোন page দেখাবে */}
           <Routes>
-            {/* "/" = home page = Dashboard */}
+            {/* Dashboard - Home page */}
             <Route path="/" element={<Dashboard />} />
             
-            {/* "/inventory" = Inventory page */}
+            {/* Products/Inventory */}
             <Route path="/inventory" element={<Inventory />} />
             
-            {/* "/settings" = Settings page */}
+            {/* All Reviews - ReviewDetails page render হবে */}
+            <Route path="/reviews" element={<ReviewDetails />} />
+            
+            {/* Analysis */}
+            <Route path="/analysis" element={<Analysis />} />
+            
+            {/* Campaigns */}
+            <Route path="/campaigns" element={<Campaigns />} />
+            
+            {/* Settings */}
             <Route path="/settings" element={<Settings />} />
             
-            {/* "/review/:id" = Review details page */}
-            {/* :id মানে dynamic parameter - যেকোনো id হতে পারে */}
+            {/* Review Details - Dynamic route */}
             <Route path="/review/:id" element={<ReviewDetails />} />
           </Routes>
         </main>
-        
-        {/* Footer */}
-        <footer className="footer">
-          <p>AI Review Analyzer © 2024</p>
-        </footer>
       </div>
     </Router>
   );

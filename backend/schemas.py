@@ -27,6 +27,40 @@ class ReviewRequest(BaseModel):
     product_link: Optional[str] = None
 
 
+class ShopifyRequest(BaseModel):
+    """
+    Shopify store থেকে reviews fetch করার request structure
+    
+    Shopify Admin API এর জন্য store domain এবং access token দরকার।
+    Access token Shopify Admin > Apps > Develop apps থেকে পাওয়া যায়।
+    
+    Optional: Judge.me বা অন্য review app ব্যবহার করলে সেই app এর
+    API token ও দিতে পারবে।
+    """
+    
+    # Shopify store এর domain
+    # Example: "cool-store.myshopify.com" or "cool-store"
+    store_domain: str
+    
+    # Shopify Admin API access token
+    # Format: "shpat_xxxxxxxx..."
+    # Permissions needed: read_products, read_content
+    access_token: str
+    
+    # Maximum reviews to fetch (default 500)
+    # বেশি দিলে API call বেশি সময় নিবে
+    limit: Optional[int] = 500
+    
+    # ========== OPTIONAL: Third-party review app ==========
+    # যদি Judge.me, Loox, Yotpo ইত্যাদি ব্যবহার করো
+    
+    # Review app name: "judge_me", "loox", "yotpo", "stamped"
+    review_app: Optional[str] = None
+    
+    # Review app এর নিজস্ব API token (Shopify token না)
+    review_app_token: Optional[str] = None
+
+
 # ============ RESPONSE SCHEMAS ============
 # API যখন response পাঠাবে, এই format এ data যাবে
 

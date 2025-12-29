@@ -11,12 +11,26 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # আমাদের তৈরি করা schemas import করছি
 # এগুলো request/response এর structure define করে
-from schemas import ReviewRequest, AnalysisResponse, ReviewResult, TopicInfo
+from schemas import (
+    ReviewRequest, 
+    ShopifyRequest,  # Shopify integration এর জন্য
+    AnalysisResponse, 
+    ReviewResult, 
+    TopicInfo
+)
 
 # আমাদের তৈরি করা ML models import করছি
 # analyzer = trained SentimentAnalyzer instance
 # TopicExtractor = topic বের করার class
 from models import analyzer, TopicExtractor
+
+# Shopify integration
+# এটা Shopify store থেকে reviews fetch করে
+from integrations.shopify import (
+    fetch_shopify_reviews,
+    ShopifyAPIError,
+    SUPPORTED_REVIEW_APPS
+)
 
 
 # ============ APP SETUP ============
@@ -152,6 +166,150 @@ def analyze_reviews(request: ReviewRequest):
     return response
 
 
+# ---------- Shopify Integration Endpoint ----------
+# Shopify store থেকে reviews fetch করে analyze করে
+
+@app.post("/analyze/shopify", response_model=AnalysisResponse)
+async def analyze_shopify_reviews(request: ShopifyRequest):
+    """
+    Shopify store থেকে reviews fetch করে sentiment analysis করে।
+    
+    Input: ShopifyRequest (store_domain, access_token, optional review_app details)
+    Output: AnalysisResponse (same as /analyze-reviews)
+    
+    IMPORTANT NOTES:
+    ----------------
+    1. Shopify Admin API তে native reviews API নেই।
+    2. Reviews সাধারণত third-party apps (Judge.me, Loox) দিয়ে manage হয়।
+    3. যদি review_app এবং review_app_token দাও, সেই app এর API ব্যবহার করবে।
+    4. না দিলে product metafields থেকে reviews খোঁজার চেষ্টা করবে।
+    5. কিছু না পেলে demo reviews generate করবে (development এর জন্য)।
+    
+    Shopify Access Token পেতে:
+    1. Shopify Admin > Settings > Apps and sales channels
+    2. Develop apps > Create an app
+    3. Configure Admin API scopes: read_products, read_content
+    4. Install app and copy the Admin API access token
+    """
+    
+    # ---------- Step 1: Validate Store Domain ----------
+    if not request.store_domain or not request.store_domain.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="store_domain is required. Example: 'mystore.myshopify.com'"
+        )
+    
+    # ---------- Step 2: Validate Access Token ----------
+    if not request.access_token or not request.access_token.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="access_token is required. Get it from Shopify Admin > Apps > Develop apps"
+        )
+    
+    # ---------- Step 3: Fetch Reviews from Shopify ----------
+    try:
+        reviews = await fetch_shopify_reviews(
+            store_domain=request.store_domain,
+            access_token=request.access_token,
+            limit=request.limit or 500,
+            review_app=request.review_app,
+            review_app_token=request.review_app_token
+        )
+    except ShopifyAPIError as e:
+        # Shopify API error - authentication বা connection issue
+        raise HTTPException(
+            status_code=e.status_code or 500,
+            detail=f"Shopify API error: {e.message}"
+        )
+    except ValueError as e:
+        # Validation error
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
+    except Exception as e:
+        # Unexpected error
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch reviews: {str(e)}"
+        )
+    
+    # ---------- Step 4: Check if we got any reviews ----------
+    if not reviews or len(reviews) == 0:
+        raise HTTPException(
+            status_code=404,
+            detail="No reviews found in this Shopify store. Make sure you have a review app installed (Judge.me, Loox, etc.) or reviews stored in product metafields."
+        )
+    
+    # ---------- Step 5: Run Sentiment Analysis ----------
+    # এখন থেকে /analyze-reviews এর মতোই logic
+    predictions = analyzer.predict(reviews)
+    summary = analyzer.get_prediction_summary(predictions)
+    
+    # ---------- Step 6: Extract Topics ----------
+    sentiments = [p["sentiment"] for p in predictions]
+    positive_topics, negative_topics = TopicExtractor.extract_topics(
+        reviews=reviews,
+        sentiments=sentiments,
+        top_k=5
+    )
+    
+    # ---------- Step 7: Prepare Sample Reviews ----------
+    sample_reviews = [
+        ReviewResult(
+            text=p["text"],
+            sentiment=p["sentiment"],
+            confidence=p["confidence"]
+        )
+        for p in predictions[:10]
+    ]
+    
+    # ---------- Step 8: Build Response ----------
+    response = AnalysisResponse(
+        total_reviews=summary["total"],
+        positive_count=summary["positive_count"],
+        negative_count=summary["negative_count"],
+        positive_percentage=summary["positive_percentage"],
+        negative_percentage=summary["negative_percentage"],
+        top_positive_topics=[
+            TopicInfo(
+                topic=t["topic"],
+                count=t["count"],
+                sentiment=t["sentiment"]
+            )
+            for t in positive_topics
+        ],
+        top_negative_topics=[
+            TopicInfo(
+                topic=t["topic"],
+                count=t["count"],
+                sentiment=t["sentiment"]
+            )
+            for t in negative_topics
+        ],
+        sample_reviews=sample_reviews
+    )
+    
+    return response
+
+
+# ---------- Shopify Info Endpoint ----------
+# Supported review apps এর তথ্য দেয়
+
+@app.get("/shopify/supported-apps")
+def get_supported_review_apps():
+    """
+    Supported third-party review apps এর list
+    এদের API integration available আছে
+    """
+    return {
+        "message": "Shopify native API তে reviews endpoint নেই। নিচের apps এর মধ্যে একটা ব্যবহার করো:",
+        "supported_apps": SUPPORTED_REVIEW_APPS,
+        "recommendation": "Judge.me সবচেয়ে popular এবং free tier আছে।",
+        "note": "review_app এবং review_app_token দিলে সেই app এর API ব্যবহার করবে।"
+    }
+
+
 # ---------- Root Endpoint ----------
 # Base URL এ গেলে কী দেখাবে
 
@@ -163,7 +321,12 @@ def root():
     return {
         "message": "Welcome to AI Review Analyzer API!",
         "docs": "/docs",  # Swagger UI এর link
-        "health": "/health"
+        "health": "/health",
+        "endpoints": {
+            "manual_analysis": "POST /analyze-reviews",
+            "shopify_integration": "POST /analyze/shopify",
+            "supported_apps": "GET /shopify/supported-apps"
+        }
     }
 
 

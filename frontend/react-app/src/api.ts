@@ -48,10 +48,11 @@ export interface TopicInfo {
   sentiment: "positive" | "negative";
 }
 
-// AnalysisSummary: Overall analysis এর summary
-export interface AnalysisSummary {
+// AnalysisResponse: Backend থেকে আসা complete response
+// এটা backend এর schemas.py এর সাথে exactly match করে
+export interface AnalysisResponse {
   // মোট reviews এর সংখ্যা
-  total: number;
+  total_reviews: number;
   
   // Positive reviews এর সংখ্যা
   positive_count: number;
@@ -64,21 +65,15 @@ export interface AnalysisSummary {
   
   // Negative reviews এর percentage
   negative_percentage: number;
-}
-
-// AnalysisResponse: Backend থেকে আসা complete response
-export interface AnalysisResponse {
-  // Overall summary
-  summary: AnalysisSummary;
-  
-  // প্রতিটি review এর detailed result
-  results: ReviewResult[];
   
   // Positive reviews থেকে extract করা top topics
-  positive_topics: TopicInfo[];
+  top_positive_topics: TopicInfo[];
   
   // Negative reviews থেকে extract করা top topics
-  negative_topics: TopicInfo[];
+  top_negative_topics: TopicInfo[];
+  
+  // Sample individual review results
+  sample_reviews: ReviewResult[];
 }
 
 // HealthResponse: Health check endpoint এর response

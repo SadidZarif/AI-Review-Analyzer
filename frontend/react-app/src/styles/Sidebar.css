@@ -1,0 +1,293 @@
+/* ============ SIDEBAR NAVIGATION STYLES ============ */
+/* Glassmorphism sidebar - collapsible navigation */
+
+/* ===== SIDEBAR CONTAINER ===== */
+.sidebar {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: rgba(16, 22, 34, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid var(--border);
+  transition: width 0.3s ease;
+  flex-shrink: 0;
+  z-index: 50;
+  position: relative;
+}
+
+/* Expanded state - full width */
+.sidebar.expanded {
+  width: 16rem; /* 256px */
+}
+
+/* Collapsed state - icon only */
+.sidebar.collapsed {
+  width: 5rem; /* 80px */
+}
+
+/* ===== SIDEBAR CONTENT ===== */
+.sidebar-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 1rem 1.5rem;
+}
+
+/* ===== LOGO SECTION ===== */
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, var(--primary), #3b82f6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  box-shadow: var(--glow);
+}
+
+.logo-text {
+  font-size: 1.25rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  white-space: nowrap;
+}
+
+/* Collapsed state এ logo text hide করে */
+.sidebar.collapsed .logo-text {
+  display: none;
+}
+
+/* ===== NAVIGATION ===== */
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Navigation Item */
+.nav-item {
+  display: block;
+  text-decoration: none;
+  color: var(--text-secondary);
+  border-radius: 0.75rem;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.nav-item-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  position: relative;
+  z-index: 1;
+}
+
+/* Collapsed state এ icon কে center করে */
+.sidebar.collapsed .nav-item-inner {
+  justify-content: center;
+  padding: 0.75rem 0;
+}
+
+/* Icon */
+.nav-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+/* Label - collapsed এ hide */
+.nav-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.sidebar.collapsed .nav-label {
+  display: none;
+}
+
+/* Badge indicator */
+.nav-badge {
+  margin-left: auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 8px var(--primary);
+}
+
+.sidebar.collapsed .nav-badge {
+  display: none;
+}
+
+/* Hover state */
+.nav-item:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Active state - gradient background */
+.nav-item.active {
+  color: var(--text-primary);
+  background: var(--primary);
+  box-shadow: var(--glow);
+}
+
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.2);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.nav-item.active:hover::before {
+  opacity: 1;
+}
+
+/* ===== SIDEBAR BOTTOM ===== */
+.sidebar-bottom {
+  padding: 1rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+/* ===== USER PROFILE ===== */
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  margin-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Avatar */
+.user-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--purple));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #fff;
+  border: 2px solid var(--border-light);
+  flex-shrink: 0;
+}
+
+/* User Info */
+.user-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.user-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+.user-role {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Collapsed state এ user profile hide */
+.sidebar.collapsed .user-profile {
+  display: none;
+}
+
+/* ===== TOGGLE BUTTON ===== */
+.sidebar-toggle {
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: center;
+}
+
+.sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1024px) {
+  /* Tablet এ sidebar default collapsed */
+  .sidebar.expanded {
+    width: 5rem;
+  }
+  
+  /* Collapsed elements এ সব সময় hide */
+  .logo-text,
+  .nav-label,
+  .nav-badge,
+  .user-profile {
+    display: none;
+  }
+  
+  .nav-item-inner {
+    justify-content: center;
+    padding: 0.75rem 0;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Mobile এ sidebar আরো compact */
+  .sidebar {
+    width: 4rem !important;
+    padding: 0.5rem;
+  }
+  
+  .sidebar-content,
+  .sidebar-bottom {
+    padding: 0.5rem;
+  }
+  
+  .logo-icon {
+    width: 2rem;
+    height: 2rem;
+    font-size: 1.25rem;
+  }
+  
+  .nav-icon {
+    font-size: 1rem;
+  }
+  
+  /* Toggle button hide on mobile */
+  .sidebar-toggle {
+    display: none;
+  }
+}
+
