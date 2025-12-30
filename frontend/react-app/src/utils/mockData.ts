@@ -112,25 +112,84 @@ export function generateWeeklyTrendData(): TrendDataPoint[] {
   return data;
 }
 
-// Monthly trend data generate করে (last 30 days)
+// Monthly trend data generate করে (4 weeks = 4 data points)
 export function generateMonthlyTrendData(): TrendDataPoint[] {
   const data: TrendDataPoint[] = [];
   let baseScore = 75 + Math.random() * 15;
   
-  for (let i = 29; i >= 0; i--) {
+  // 4 weeks এর জন্য 4 টা data point generate করছি
+  for (let week = 4; week >= 1; week--) {
+    // প্রতিটি week এর জন্য average date calculate করছি
+    const daysAgo = (week - 1) * 7 + 3.5; // Week এর মাঝামাঝি দিন
     const date = new Date();
-    date.setDate(date.getDate() - i);
+    date.setDate(date.getDate() - daysAgo);
     
-    const variation = (Math.random() - 0.5) * 8;
+    // Week-to-week variation (±5 points)
+    const variation = (Math.random() - 0.5) * 10;
     const score = Math.max(65, Math.min(92, baseScore + variation));
     
-    const totalReviews = Math.floor(120 + Math.random() * 80);
+    // Weekly total reviews (7 দিনের aggregate)
+    const totalReviews = Math.floor(800 + Math.random() * 400); // 800-1200 per week
     const positiveCount = Math.floor((score / 100) * totalReviews);
     const negativeCount = totalReviews - positiveCount;
     
     data.push({
       date: date.toISOString().split('T')[0],
-      day: date.getDate().toString(),
+      day: `Week ${week}`, // "Week 1", "Week 2", "Week 3", "Week 4"
+      sentimentScore: Math.round(score),
+      positiveCount,
+      negativeCount,
+      totalReviews
+    });
+    
+    baseScore = score; // Trend আগের week থেকে continue করে
+  }
+  
+  return data;
+}
+
+// Custom date range এর জন্য trend data generate করে
+export function generateCustomDateRangeData(startDate: Date, endDate: Date): TrendDataPoint[] {
+  const data: TrendDataPoint[] = [];
+  let baseScore = 75 + Math.random() * 15;
+  
+  // Date range এর মধ্যে কত দিন আছে
+  const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  
+  // যদি 30 দিনের বেশি হয়, তাহলে weekly data points
+  // যদি 30 দিনের কম হয়, তাহলে daily data points
+  const isLongRange = daysDiff > 30;
+  const interval = isLongRange ? 7 : 1; // Weekly বা daily
+  
+  let currentDate = new Date(startDate);
+  let pointIndex = 0;
+  
+  while (currentDate <= endDate) {
+    const variation = (Math.random() - 0.5) * 10;
+    const score = Math.max(60, Math.min(95, baseScore + variation));
+    
+    // Data point এর label
+    let dayLabel: string;
+    if (isLongRange) {
+      // Weekly: "Week 1", "Week 2", etc. বা date format
+      const weekNum = Math.floor(pointIndex / 7) + 1;
+      dayLabel = `Week ${weekNum}`;
+    } else {
+      // Daily: Date format (e.g., "Jan 1", "Dec 2")
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      dayLabel = `${monthNames[currentDate.getMonth()]} ${currentDate.getDate()}`;
+    }
+    
+    const totalReviews = isLongRange 
+      ? Math.floor(800 + Math.random() * 400) // Weekly aggregate
+      : Math.floor(150 + Math.random() * 100); // Daily
+    
+    const positiveCount = Math.floor((score / 100) * totalReviews);
+    const negativeCount = totalReviews - positiveCount;
+    
+    data.push({
+      date: currentDate.toISOString().split('T')[0],
+      day: dayLabel,
       sentimentScore: Math.round(score),
       positiveCount,
       negativeCount,
@@ -138,6 +197,10 @@ export function generateMonthlyTrendData(): TrendDataPoint[] {
     });
     
     baseScore = score;
+    pointIndex++;
+    
+    // Next date (interval অনুযায়ী)
+    currentDate.setDate(currentDate.getDate() + interval);
   }
   
   return data;

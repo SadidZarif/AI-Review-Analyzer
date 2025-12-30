@@ -2,30 +2,33 @@
 // SVG-based sentiment trend chart - area chart with gradient fill
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { generateWeeklyTrendData, generateMonthlyTrendData, type TrendDataPoint } from '../utils/mockData';
+import { 
+  generateCustomDateRangeData,
+  type TrendDataPoint 
+} from '../utils/mockData';
 
-type TimePeriod = 'week' | 'month' | 'year';
+interface TrendChartProps {
+  dateRange?: { startDate: Date | null; endDate: Date | null };
+}
 
-function TrendChart() {
+function TrendChart({ dateRange }: TrendChartProps = {}) {
   // State management
-  const [period, setPeriod] = useState<TimePeriod>('week');
   const [data, setData] = useState<TrendDataPoint[]>([]);
   const [hoveredPoint, setHoveredPoint] = useState<TrendDataPoint | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   
   const chartRef = useRef<HTMLDivElement>(null);
   
-  // Period change হলে নতুন data load করছি
+  // শুধুমাত্র dateRange change হলে নতুন data load করছি
   useEffect(() => {
-    if (period === 'week') {
-      setData(generateWeeklyTrendData());
-    } else if (period === 'month') {
-      setData(generateMonthlyTrendData());
+    // Custom date range থাকলে data generate করছি
+    if (dateRange?.startDate && dateRange?.endDate) {
+      setData(generateCustomDateRangeData(dateRange.startDate, dateRange.endDate));
     } else {
-      // Year data (same as month for now)
-      setData(generateMonthlyTrendData());
+      // Date range না থাকলে empty array
+      setData([]);
     }
-  }, [period]);
+  }, [dateRange]);
   
   // Dashed comparison line এর জন্য random offsets
   // useMemo MUST be called before any conditional returns (React hooks rule)
@@ -33,8 +36,24 @@ function TrendChart() {
     return data.map(() => 5 + Math.random() * 10);
   }, [data]);
   
-  // Data না থাকলে null return করছি
-  if (data.length === 0) return null;
+  // Data না থাকলে empty state message show করছি
+  if (data.length === 0) {
+    return (
+      <div className="trend-chart-container">
+        <div className="trend-chart-header">
+          <div>
+            <h3 className="chart-title">Sentiment Trend</h3>
+            <p className="chart-subtitle">Review volume vs. positive sentiment</p>
+          </div>
+        </div>
+        <div className="chart-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+            Please select a date range to view the sentiment trend
+          </p>
+        </div>
+      </div>
+    );
+  }
   
   // Chart dimensions
   const width = 800;
@@ -118,28 +137,6 @@ function TrendChart() {
         <div>
           <h3 className="chart-title">Sentiment Trend</h3>
           <p className="chart-subtitle">Review volume vs. positive sentiment</p>
-        </div>
-        
-        {/* Period Toggle Buttons */}
-        <div className="period-toggle">
-          <button
-            className={period === 'week' ? 'active' : ''}
-            onClick={() => setPeriod('week')}
-          >
-            Week
-          </button>
-          <button
-            className={period === 'month' ? 'active' : ''}
-            onClick={() => setPeriod('month')}
-          >
-            Month
-          </button>
-          <button
-            className={period === 'year' ? 'active' : ''}
-            onClick={() => setPeriod('year')}
-          >
-            Year
-          </button>
         </div>
       </div>
       
@@ -245,12 +242,7 @@ function TrendChart() {
         )}
       </div>
       
-      {/* X-axis Labels */}
-      <div className="chart-labels">
-        {data.slice(0, 7).map((d, i) => (
-          <span key={i}>{d.day}</span>
-        ))}
-      </div>
+      {/* X-axis Labels - removed (no numbers/labels shown) */}
     </div>
   );
 }

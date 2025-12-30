@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import MetricCard from '../components/MetricCard';
 import TrendChart from '../components/TrendChart';
 import ReviewCard from '../components/ReviewCard';
+import DateRangePicker, { type DateRange } from '../components/DateRangePicker';
 
 // API types এবং utilities
 import { type AnalysisResponse } from '../api';
@@ -32,6 +33,18 @@ function Dashboard() {
   
   // Mock metrics (demo এর জন্য)
   const [mockMetrics] = useState<MockMetrics>(generateMockMetrics());
+  
+  // Date range state - custom date range selection এর জন্য
+  // Default: শেষ 30 দিনের data show করবে
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30); // শেষ 30 দিন
+    return {
+      startDate,
+      endDate
+    };
+  });
   
   // Navigation hook - review details page এ যাওয়ার জন্য
   const navigate = useNavigate();
@@ -83,12 +96,12 @@ function Dashboard() {
         </div>
         
         <div className="header-actions">
-          {/* Date Picker (UI only - functionality TODO) */}
-          <button className="date-picker-btn">
-            <span className="material-symbols-outlined">calendar_month</span>
-            <span>Oct 2023</span>
-            <span className="material-symbols-outlined">arrow_drop_down</span>
-          </button>
+          {/* Date Range Picker - Custom date range selection */}
+          <DateRangePicker 
+            onDateRangeChange={setDateRange}
+            defaultStartDate={dateRange.startDate || undefined}
+            defaultEndDate={dateRange.endDate || undefined}
+          />
           
           {/* Export Button */}
           <button className="export-btn" onClick={handleExportReport}>
@@ -194,7 +207,7 @@ function Dashboard() {
       <section className="chart-ai-section">
         {/* Trend Chart (2/3 width) */}
         <div className="trend-chart-wrapper">
-          <TrendChart />
+          <TrendChart dateRange={dateRange} />
         </div>
         
         {/* AI Insight Box (1/3 width) - Gradient border effect */}
