@@ -192,7 +192,7 @@ async def analyze_shopify_reviews(request: ShopifyRequest):
     2. Reviews সাধারণত third-party apps (Judge.me, Loox) দিয়ে manage হয়।
     3. যদি review_app এবং review_app_token দাও, সেই app এর API ব্যবহার করবে।
     4. না দিলে product metafields থেকে reviews খোঁজার চেষ্টা করবে।
-    5. কিছু না পেলে demo reviews generate করবে (development এর জন্য)।
+    5. রিভিউ না পেলে এখন 404 error ফিরিয়ে দেয় (demo fallback নেই)।
     
     Shopify Access Token পেতে:
     1. Shopify Admin > Settings > Apps and sales channels

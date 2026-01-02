@@ -16,8 +16,7 @@ Reviews in Shopify stores are typically managed through third-party apps:
 This module provides:
 1. ShopifyClient - For basic Shopify Admin API operations
 2. Product metafield extraction (for stores using native review metafields)
-3. Fallback to product descriptions/notes for demo purposes
-4. Placeholder for Judge.me integration (most common review app)
+3. Placeholder for Judge.me integration (most common review app)
 
 For production use, you'll need to:
 - Either integrate with the specific review app your store uses
@@ -794,16 +793,6 @@ async def fetch_shopify_reviews(
             # Individual product error তে skip করছি
             continue
     
-    # ========== APPROACH 3: FALLBACK - Demo Data ==========
-    # যদি কোনো reviews না পাওয়া যায়, demo/sample reviews return করছি
-    # Production এ এই section remove করে proper review app integration করতে হবে
-    
-    if not reviews:
-        # Products আছে কিন্তু reviews নেই - inform করছি
-        # Returning sample reviews for demo purposes
-        sample_reviews = _generate_sample_reviews_from_products(products, limit)
-        reviews = sample_reviews
-    
     # ========== NORMALIZE & CLEAN ==========
     cleaned_reviews = []
     
@@ -820,84 +809,4 @@ async def fetch_shopify_reviews(
     
     return cleaned_reviews[:limit]
 
-
-def _generate_sample_reviews_from_products(
-    products: list[ShopifyProduct],
-    limit: int
-) -> list[str]:
-    """
-    Products থেকে sample/demo reviews generate করে।
-    
-    IMPORTANT: এটা শুধু demo purpose এ ব্যবহার করা হচ্ছে।
-    Production এ proper review app integration করতে হবে।
-    
-    এই function product titles এবং descriptions থেকে
-    realistic-looking sample reviews তৈরি করে।
-    """
-    import random
-    
-    # Positive review templates
-    positive_templates = [
-        "Love this {product}! Exactly what I was looking for.",
-        "The {product} exceeded my expectations. Great quality!",
-        "Best {product} I've ever purchased. Highly recommend!",
-        "Amazing {product}! Fast shipping and perfect condition.",
-        "Five stars for this {product}. Worth every penny.",
-        "This {product} is fantastic. Will definitely buy again.",
-        "Super happy with my {product}. Great customer service too!",
-        "The quality of this {product} is outstanding.",
-        "Absolutely love my new {product}! Perfect fit.",
-        "Great {product}! Arrived quickly and works perfectly."
-    ]
-    
-    # Negative review templates  
-    negative_templates = [
-        "Disappointed with this {product}. Not as described.",
-        "The {product} broke after a week. Poor quality.",
-        "Not worth the price. The {product} feels cheap.",
-        "Slow shipping and the {product} was damaged.",
-        "Expected better quality from this {product}.",
-        "The {product} doesn't work as advertised.",
-        "Returning this {product}. Very unsatisfied.",
-        "Poor quality {product}. Would not recommend."
-    ]
-    
-    # Mixed/Neutral templates
-    neutral_templates = [
-        "The {product} is okay. Nothing special.",
-        "Average {product}. Does what it's supposed to.",
-        "Good {product} but shipping took too long.",
-        "Nice {product} but a bit overpriced."
-    ]
-    
-    reviews = []
-    
-    for product in products:
-        if len(reviews) >= limit:
-            break
-        
-        product_name = product.title.split(' - ')[0][:30]  # Shortened title
-        
-        # Generate 3-5 reviews per product
-        num_reviews = random.randint(3, 5)
-        
-        for _ in range(num_reviews):
-            if len(reviews) >= limit:
-                break
-                
-            # 70% positive, 20% negative, 10% neutral
-            rand = random.random()
-            
-            if rand < 0.7:
-                template = random.choice(positive_templates)
-            elif rand < 0.9:
-                template = random.choice(negative_templates)
-            else:
-                template = random.choice(neutral_templates)
-            
-            review = template.format(product=product_name)
-            reviews.append(review)
-    
-    random.shuffle(reviews)
-    return reviews[:limit]
 
