@@ -14,13 +14,8 @@ import DateRangePicker, { type DateRange } from '../components/DateRangePicker';
 
 // API types এবং utilities
 import { type AnalysisResponse } from '../api';
-import { mapSentimentToStars, formatNumber, formatPercentageChange } from '../utils/helpers';
-import {
-  generateMockMetrics,
-  generateMockReviewer,
-  generateAIReply,
-  type MockMetrics
-} from '../utils/mockData';
+import { mapSentimentToStars, formatNumber } from '../utils/helpers';
+import { generateMockReviewer, generateAIReply } from '../utils/mockData';
 
 // Styles import
 import '../styles/Dashboard.css';
@@ -37,8 +32,8 @@ function Dashboard() {
   const [showReviewForm, setShowReviewForm] = useState<boolean>(false);
   const [showShopifyForm, setShowShopifyForm] = useState<boolean>(false);
   
-  // Mock metrics (demo এর জন্য)
-  const [mockMetrics] = useState<MockMetrics>(generateMockMetrics());
+  // Actual results availability flag
+  const hasResults = Boolean(results);
   
   // Date range state - custom date range selection এর জন্য
   // Default: শেষ 30 দিনের data show করবে
@@ -250,28 +245,24 @@ function Dashboard() {
         {/* Sentiment Score Card - Green theme */}
         <MetricCard
           label="SENTIMENT SCORE"
-          value={results ? Math.round(results.positive_percentage) : mockMetrics.sentimentScore}
-          unit="/100"
+          value={hasResults ? Math.round(results.positive_percentage) : '—'}
+          unit={hasResults ? '/100' : undefined}
           icon="sentiment_satisfied"
           iconColor="linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05))"
           iconTextColor="#22c55e"
-          changeValue={formatPercentageChange(mockMetrics.weeklyChange)}
-          changeLabel="vs last week"
-          changeType={mockMetrics.weeklyChange >= 0 ? 'positive' : 'negative'}
-          progressValue={mockMetrics.sentimentScore}
+          changeType="neutral"
+          progressValue={hasResults ? Math.round(results.positive_percentage) : undefined}
           progressType="positive"
         />
         
         {/* Review Volume Card - Blue theme */}
         <MetricCard
           label="REVIEW VOLUME"
-          value={formatNumber(results ? results.total_reviews : mockMetrics.totalReviews)}
+          value={hasResults ? formatNumber(results.total_reviews) : '—'}
           icon="bar_chart"
           iconColor="linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.05))"
           iconTextColor="#3b82f6"
-          changeValue={`+${mockMetrics.newReviews}`}
-          changeLabel="new reviews"
-          changeType="positive"
+          changeType="neutral"
           miniChart={
             // Mini chart bars - Blue colored
             <div className="mini-chart-bars">
@@ -288,40 +279,40 @@ function Dashboard() {
         {/* Positive Reviews Card - Green theme */}
         <MetricCard
           label="POSITIVE REVIEWS"
-          value={formatNumber(results ? results.positive_count : mockMetrics.positiveReviews)}
+          value={hasResults ? formatNumber(results.positive_count) : '—'}
           icon="thumb_up"
           iconColor="linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05))"
           iconTextColor="#22c55e"
-          changeValue={`+${mockMetrics.positiveChange}%`}
-          changeLabel="vs last week"
-          changeType="positive"
-          progressValue={(mockMetrics.positiveReviews / mockMetrics.totalReviews) * 100}
+          changeType="neutral"
+          progressValue={hasResults && results.total_reviews > 0
+            ? (results.positive_count / results.total_reviews) * 100
+            : undefined}
           progressType="positive"
         />
         
         {/* Negative Reviews Card - Red theme */}
         <MetricCard
           label="NEGATIVE REVIEWS"
-          value={formatNumber(results ? results.negative_count : mockMetrics.negativeReviews)}
+          value={hasResults ? formatNumber(results.negative_count) : '—'}
           icon="thumb_down"
           iconColor="linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05))"
           iconTextColor="#ef4444"
-          changeValue={`${mockMetrics.negativeChange}%`}
-          changeLabel="vs last week"
-          changeType="positive"
-          progressValue={(mockMetrics.negativeReviews / mockMetrics.totalReviews) * 100}
+          changeType="neutral"
+          progressValue={hasResults && results.total_reviews > 0
+            ? (results.negative_count / results.total_reviews) * 100
+            : undefined}
           progressType="negative"
         />
         
         {/* Pending Actions Card - Orange theme */}
         <MetricCard
           label="PENDING ACTIONS"
-          value={mockMetrics.pendingActions}
+          value={hasResults ? formatNumber(results.negative_count) : '—'}
           icon="pending_actions"
           iconColor="linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05))"
           iconTextColor="#f59e0b"
-          changeValue="Urgent"
-          changeLabel="negatives need reply"
+          changeValue={hasResults ? 'Needs reply' : undefined}
+          changeLabel={hasResults ? 'negative reviews pending' : undefined}
           changeType="negative"
           miniChart={
             // User avatars (mock)
@@ -329,7 +320,7 @@ function Dashboard() {
               <div className="avatar" style={{ backgroundColor: '#ef4444' }}>SJ</div>
               <div className="avatar" style={{ backgroundColor: '#3b82f6' }}>MR</div>
               <div className="avatar" style={{ backgroundColor: '#22c55e' }}>EW</div>
-              <div className="avatar-more">+{mockMetrics.pendingActions - 3}</div>
+              <div className="avatar-more">+{hasResults ? Math.max(results.negative_count - 3, 0) : 0}</div>
             </div>
           }
         />
