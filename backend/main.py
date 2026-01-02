@@ -9,6 +9,14 @@ from fastapi import FastAPI, HTTPException
 # CORS না থাকলে browser frontend থেকে API call block করবে
 from fastapi.middleware.cors import CORSMiddleware
 
+# Environment variables load করার জন্য
+# .env file থেকে sensitive data (API tokens) load করবে
+from dotenv import load_dotenv
+import os
+
+# .env file load করছি (যদি থাকে)
+load_dotenv()
+
 # আমাদের তৈরি করা schemas import করছি
 # এগুলো request/response এর structure define করে
 from schemas import (
@@ -28,6 +36,7 @@ from models import analyzer, TopicExtractor
 # এটা Shopify store থেকে reviews fetch করে
 from integrations.shopify import (
     fetch_shopify_reviews,
+    fetch_shopify_reviews_with_metadata,
     ShopifyAPIError,
     SUPPORTED_REVIEW_APPS
 )
@@ -206,20 +215,61 @@ async def analyze_shopify_reviews(request: ShopifyRequest):
             detail="access_token is required. Get it from Shopify Admin > Apps > Develop apps"
         )
     
+    # ---------- Step 2.5: Handle Judge.me API Token ----------
+    # যদি review_app_token না দেওয়া হয় কিন্তু Judge.me app use করা হচ্ছে,
+    # তাহলে environment variable থেকে token load করব
+    review_app_token = request.review_app_token
+    
+    if (request.review_app and 
+        (request.review_app.lower() == "judge_me" or request.review_app.lower() == "judge.me") and
+        not review_app_token):
+        # Environment variable থেকে Judge.me token load করছি
+        env_token = os.getenv("JUDGE_ME_API_TOKEN")
+        if env_token:
+            review_app_token = env_token
+            print("Using Judge.me API token from environment variable")
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Judge.me API token is required. Either provide 'review_app_token' in request or set JUDGE_ME_API_TOKEN environment variable."
+            )
+    
     # ---------- Step 3: Fetch Reviews from Shopify ----------
+    # Judge.me ব্যবহার করলে full metadata সহ reviews fetch করব
     try:
-        reviews = await fetch_shopify_reviews(
-            store_domain=request.store_domain,
-            access_token=request.access_token,
-            limit=request.limit or 500,
-            review_app=request.review_app,
-            review_app_token=request.review_app_token
-        )
+        if review_app_token and (request.review_app and (request.review_app.lower() == "judge_me" or request.review_app.lower() == "judge.me")):
+            # Full metadata সহ reviews fetch করছি
+            reviews_with_metadata = await fetch_shopify_reviews_with_metadata(
+                store_domain=request.store_domain,
+                access_token=request.access_token,
+                limit=request.limit or 500,
+                review_app=request.review_app,
+                review_app_token=review_app_token
+            )
+            
+            # Reviews text extract করছি analysis এর জন্য
+            reviews = [r.get("body", "") for r in reviews_with_metadata if r.get("body")]
+            review_metadata = reviews_with_metadata  # Metadata store করছি
+        else:
+            # Normal fetch (text only)
+            reviews = await fetch_shopify_reviews(
+                store_domain=request.store_domain,
+                access_token=request.access_token,
+                limit=request.limit or 500,
+                review_app=request.review_app,
+                review_app_token=review_app_token
+            )
+            review_metadata = None
     except ShopifyAPIError as e:
         # Shopify API error - authentication বা connection issue
+        # Judge.me API error হলে specific message দেখাবে
+        error_message = e.message
+        if request.review_app and "judge.me" in error_message.lower():
+            error_message = f"Judge.me API error: {e.message}. Please verify your Judge.me API token and shop domain."
+        
         raise HTTPException(
             status_code=e.status_code or 500,
-            detail=f"Shopify API error: {e.message}"
+            detail=error_message
         )
     except ValueError as e:
         # Validation error
@@ -255,14 +305,25 @@ async def analyze_shopify_reviews(request: ShopifyRequest):
     )
     
     # ---------- Step 7: Prepare Sample Reviews ----------
-    sample_reviews = [
-        ReviewResult(
+    # Full metadata সহ reviews prepare করছি
+    sample_reviews = []
+    for i, p in enumerate(predictions[:10]):
+        review_result = ReviewResult(
             text=p["text"],
             sentiment=p["sentiment"],
             confidence=p["confidence"]
         )
-        for p in predictions[:10]
-    ]
+        
+        # যদি metadata থাকে, তাহলে add করছি
+        if review_metadata and i < len(review_metadata):
+            meta = review_metadata[i]
+            review_result.reviewer_name = meta.get("reviewer_name")
+            review_result.review_date = meta.get("created_at")
+            review_result.product_name = meta.get("product_title")
+            review_result.product_id = meta.get("product_id")
+            review_result.rating = meta.get("rating")
+        
+        sample_reviews.append(review_result)
     
     # ---------- Step 8: Build Response ----------
     response = AnalysisResponse(

@@ -82,6 +82,24 @@ class ReviewResult(BaseModel):
     # 0.95 মানে 95% confident, 0.5 মানে ঠিক মাঝামাঝি/uncertain
     confidence: float
 
+    # ========== OPTIONAL: Judge.me / Shopify Review Metadata ==========
+    # যদি Judge.me বা Shopify থেকে review আসে, তাহলে এই fields থাকবে
+    
+    # Reviewer এর নাম
+    reviewer_name: Optional[str] = None
+    
+    # Review এর timestamp/date
+    review_date: Optional[str] = None
+    
+    # Product name/title
+    product_name: Optional[str] = None
+    
+    # Product ID (Shopify product ID)
+    product_id: Optional[int] = None
+    
+    # Rating (1-5 stars)
+    rating: Optional[int] = None
+
 
 class TopicInfo(BaseModel):
     """

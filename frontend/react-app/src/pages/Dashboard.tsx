@@ -8,6 +8,8 @@ import { useNavigate } from 'react-router-dom';
 import MetricCard from '../components/MetricCard';
 import TrendChart from '../components/TrendChart';
 import ReviewCard from '../components/ReviewCard';
+import ReviewForm from '../components/ReviewForm';
+import ShopifyForm from '../components/ShopifyForm';
 import DateRangePicker, { type DateRange } from '../components/DateRangePicker';
 
 // API types এবং utilities
@@ -28,8 +30,12 @@ function Dashboard() {
   // ============ STATE MANAGEMENT ============
   
   // Real analysis results (backend থেকে আসবে)
-  const [results] = useState<AnalysisResponse | null>(null);
-  const [isLoading] = useState<boolean>(false);
+  const [results, setResults] = useState<AnalysisResponse | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  
+  // ReviewForm show/hide state - modal বা section toggle করার জন্য
+  const [showReviewForm, setShowReviewForm] = useState<boolean>(false);
+  const [showShopifyForm, setShowShopifyForm] = useState<boolean>(false);
   
   // Mock metrics (demo এর জন্য)
   const [mockMetrics] = useState<MockMetrics>(generateMockMetrics());
@@ -52,18 +58,17 @@ function Dashboard() {
   
   // ============ HANDLERS ============
   
-  // Note: এই handlers গুলো এখনো integrate করা হয়নি
-  // ReviewForm component integrate করার পর এগুলো ব্যবহার হবে
-  
-  // Analysis complete callback - ReviewForm থেকে call হবে
-  // function handleAnalysisComplete(data: AnalysisResponse) {
-  //   setResults(data);
-  // }
+  // Analysis complete callback - ReviewForm বা ShopifyForm থেকে call হবে
+  function handleAnalysisComplete(data: AnalysisResponse) {
+    setResults(data);
+    setShowReviewForm(false); // Analysis complete হলে form hide করছি
+    setShowShopifyForm(false); // Shopify form ও hide করছি
+  }
   
   // Loading state change callback
-  // function handleLoadingChange(loading: boolean) {
-  //   setIsLoading(loading);
-  // }
+  function handleLoadingChange(loading: boolean) {
+    setIsLoading(loading);
+  }
   
   // Review card click - details page এ navigate করবে
   function handleReviewClick(index: number) {
@@ -96,6 +101,26 @@ function Dashboard() {
         </div>
         
         <div className="header-actions">
+          {/* Shopify Integration Button - Judge.me থেকে reviews fetch করার জন্য */}
+          <button 
+            className="export-btn" 
+            onClick={() => setShowShopifyForm(true)}
+            style={{ marginRight: '1rem', backgroundColor: 'rgba(59, 130, 246, 0.1)' }}
+          >
+            <span className="material-symbols-outlined">store</span>
+            <span>Fetch from Shopify</span>
+          </button>
+          
+          {/* Analyze Reviews Button - Manual ReviewForm open করার জন্য */}
+          <button 
+            className="export-btn" 
+            onClick={() => setShowReviewForm(true)}
+            style={{ marginRight: '1rem' }}
+          >
+            <span className="material-symbols-outlined">rate_review</span>
+            <span>Analyze Reviews</span>
+          </button>
+          
           {/* Date Range Picker - Custom date range selection */}
           <DateRangePicker 
             onDateRangeChange={setDateRange}
@@ -112,12 +137,120 @@ function Dashboard() {
       </header>
       
       
+      {/* ========== SHOPIFY FORM MODAL ========== */}
+      {showShopifyForm && (
+        <div 
+          className="modal-overlay" 
+          onClick={() => setShowShopifyForm(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}
+        >
+          <div 
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: '#1e293b',
+              padding: '2rem',
+              borderRadius: '12px',
+              maxWidth: '600px',
+              width: '90%',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ margin: 0, color: '#fff' }}>Fetch Reviews from Shopify</h2>
+              <button 
+                onClick={() => setShowShopifyForm(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#fff',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <ShopifyForm 
+              onAnalysisComplete={handleAnalysisComplete}
+              onLoadingChange={handleLoadingChange}
+            />
+          </div>
+        </div>
+      )}
+      
+      {/* ========== REVIEW FORM MODAL ========== */}
+      {showReviewForm && (
+        <div 
+          className="modal-overlay" 
+          onClick={() => setShowReviewForm(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}
+        >
+          <div 
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: '#1e293b',
+              padding: '2rem',
+              borderRadius: '12px',
+              maxWidth: '600px',
+              width: '90%',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ margin: 0, color: '#fff' }}>Analyze Reviews</h2>
+              <button 
+                onClick={() => setShowReviewForm(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#fff',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <ReviewForm 
+              onAnalysisComplete={handleAnalysisComplete}
+              onLoadingChange={handleLoadingChange}
+            />
+          </div>
+        </div>
+      )}
+      
       {/* ========== METRICS ROW ========== */}
       <section className="metrics-section">
         {/* Sentiment Score Card - Green theme */}
         <MetricCard
           label="SENTIMENT SCORE"
-          value={mockMetrics.sentimentScore}
+          value={results ? Math.round(results.positive_percentage) : mockMetrics.sentimentScore}
           unit="/100"
           icon="sentiment_satisfied"
           iconColor="linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05))"
@@ -132,7 +265,7 @@ function Dashboard() {
         {/* Review Volume Card - Blue theme */}
         <MetricCard
           label="REVIEW VOLUME"
-          value={formatNumber(mockMetrics.totalReviews)}
+          value={formatNumber(results ? results.total_reviews : mockMetrics.totalReviews)}
           icon="bar_chart"
           iconColor="linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.05))"
           iconTextColor="#3b82f6"
@@ -155,7 +288,7 @@ function Dashboard() {
         {/* Positive Reviews Card - Green theme */}
         <MetricCard
           label="POSITIVE REVIEWS"
-          value={formatNumber(mockMetrics.positiveReviews)}
+          value={formatNumber(results ? results.positive_count : mockMetrics.positiveReviews)}
           icon="thumb_up"
           iconColor="linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05))"
           iconTextColor="#22c55e"
@@ -169,7 +302,7 @@ function Dashboard() {
         {/* Negative Reviews Card - Red theme */}
         <MetricCard
           label="NEGATIVE REVIEWS"
-          value={formatNumber(mockMetrics.negativeReviews)}
+          value={formatNumber(results ? results.negative_count : mockMetrics.negativeReviews)}
           icon="thumb_down"
           iconColor="linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05))"
           iconTextColor="#ef4444"
@@ -296,12 +429,12 @@ function Dashboard() {
                 return (
                   <ReviewCard
                     key={index}
-                    reviewerName={reviewer.name}
-                    reviewerInitials={reviewer.initials}
+                    reviewerName={review.reviewer_name || reviewer.name}
+                    reviewerInitials={review.reviewer_name ? review.reviewer_name.substring(0, 2).toUpperCase() : reviewer.initials}
                     reviewerAvatarColor={reviewer.avatarColor}
-                    timestamp={reviewer.timestamp}
+                    timestamp={review.review_date || reviewer.timestamp}
                     reviewText={review.text}
-                    rating={stars}
+                    rating={review.rating || stars}
                     sentiment={review.sentiment as 'positive' | 'negative' | 'neutral'}
                     aiSuggestion={aiSuggestion}
                     onQuickReply={handleQuickReply}

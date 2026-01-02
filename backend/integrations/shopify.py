@@ -336,10 +336,14 @@ class JudgeMeClient:
     
     Requirements:
     - Judge.me app installed on store
-    - Judge.me API key (from app settings)
-    - Shop domain
+    - Judge.me API token (from app settings > API)
+    - Shop domain (without .myshopify.com)
     
     API Docs: https://judge.me/api/docs
+    
+    IMPORTANT:
+    Judge.me API token query parameter হিসেবে pass হয়, Bearer token না।
+    Shop domain এ .myshopify.com থাকলে remove করতে হবে।
     """
     
     def __init__(self, shop_domain: str, api_token: str):
@@ -347,16 +351,37 @@ class JudgeMeClient:
         Initialize Judge.me client।
         
         Args:
-            shop_domain: Shopify store domain
-            api_token: Judge.me API token (not Shopify token)
+            shop_domain: Shopify store domain (e.g., "mystore.myshopify.com" or "mystore")
+            api_token: Judge.me API token (from Judge.me app settings)
         """
-        self.shop_domain = shop_domain
+        # Shop domain normalize করছি - .myshopify.com remove করছি
+        self.shop_domain = self._normalize_shop_domain(shop_domain)
         self.api_token = api_token
         self.base_url = "https://judge.me/api/v1"
-        self.headers = {
-            "Authorization": f"Bearer {api_token}",
-            "Content-Type": "application/json"
-        }
+    
+    def _normalize_shop_domain(self, domain: str) -> str:
+        """
+        Shop domain normalize করে - Judge.me API এর জন্য .myshopify.com remove করতে হবে।
+        
+        Args:
+            domain: Raw shop domain
+            
+        Returns:
+            Normalized domain (e.g., "mystore")
+        """
+        domain = domain.strip()
+        # https:// বা http:// remove
+        domain = domain.replace("https://", "").replace("http://", "")
+        domain = domain.rstrip("/")
+        
+        # .myshopify.com remove করছি
+        if domain.endswith(".myshopify.com"):
+            domain = domain.replace(".myshopify.com", "")
+        elif ".myshopify.com" in domain:
+            # যদি middle এ থাকে
+            domain = domain.split(".myshopify.com")[0]
+        
+        return domain
     
     async def get_reviews(
         self, 
@@ -366,69 +391,305 @@ class JudgeMeClient:
         """
         Judge.me থেকে reviews fetch করে।
         
+        Judge.me API format:
+        - Endpoint: https://judge.me/api/v1/reviews
+        - Authentication: api_token query parameter
+        - Required: shop_domain, api_token
+        
         Args:
-            per_page: Reviews per page
-            page: Page number
+            per_page: Reviews per page (max 250)
+            page: Page number (starts from 1)
             
         Returns:
             List of review dictionaries
+            
+        Raises:
+            ShopifyAPIError: API error হলে
         """
         url = f"{self.base_url}/reviews"
+        
+        # Judge.me API token query parameter হিসেবে pass হয়
         params = {
             "shop_domain": self.shop_domain,
-            "per_page": per_page,
+            "api_token": self.api_token,
+            "per_page": min(per_page, 250),  # Max 250 per page
             "page": page
         }
         
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(
-                url, 
-                headers=self.headers,
-                params=params
-            )
-            
-            if response.status_code >= 400:
+            try:
+                response = await client.get(url, params=params)
+                
+                # Error handling
+                if response.status_code >= 400:
+                    error_detail = "Unknown error"
+                    try:
+                        error_data = response.json()
+                        error_detail = error_data.get("message", error_data.get("error", str(response.status_code)))
+                    except:
+                        error_detail = response.text[:200] if response.text else f"HTTP {response.status_code}"
+                    
+                    raise ShopifyAPIError(
+                        message=f"Judge.me API error: {error_detail}",
+                        status_code=response.status_code,
+                        response_data={"detail": error_detail}
+                    )
+                
+                # Success response parse করছি
+                data = response.json()
+                
+                # Judge.me API response format check
+                # Response হতে পারে: {"reviews": [...]} বা direct list
+                if isinstance(data, list):
+                    return data
+                elif isinstance(data, dict):
+                    # "reviews" key থাকলে
+                    if "reviews" in data:
+                        return data["reviews"]
+                    # "data" key থাকলে
+                    elif "data" in data:
+                        return data["data"] if isinstance(data["data"], list) else []
+                    else:
+                        # Direct dict হলে empty list return
+                        return []
+                else:
+                    return []
+                    
+            except httpx.RequestError as e:
                 raise ShopifyAPIError(
-                    message=f"Judge.me API error: {response.status_code}",
-                    status_code=response.status_code
+                    message=f"Network error connecting to Judge.me API: {str(e)}"
                 )
-            
-            return response.json().get("reviews", [])
     
-    async def extract_review_texts(self, limit: int = 500) -> list[str]:
+    async def get_full_reviews(self, limit: int = 500) -> list[dict]:
         """
-        Judge.me reviews থেকে শুধু text extract করে।
+        Judge.me থেকে full review data fetch করে (metadata সহ)।
         
-        Args:
-            limit: Maximum reviews to fetch
-            
         Returns:
-            List of review text strings
+            List of review dictionaries with:
+            - body: Review text
+            - reviewer_name: Reviewer name
+            - created_at: Review date
+            - product_title: Product name
+            - product_id: Product ID
+            - rating: Star rating (1-5)
         """
         reviews = []
         page = 1
         per_page = 100
         
         while len(reviews) < limit:
-            batch = await self.get_reviews(per_page=per_page, page=page)
-            
-            if not batch:
-                break
+            try:
+                batch = await self.get_reviews(per_page=per_page, page=page)
                 
-            for review in batch:
-                body = review.get("body", "").strip()
-                if body:
-                    reviews.append(body)
+                if not batch or len(batch) == 0:
+                    break
+                
+                for review in batch:
+                    if len(reviews) >= limit:
+                        break
+                    
+                    if isinstance(review, dict):
+                        # Judge.me API response structure parse করছি
+                        review_data = {
+                            "body": "",
+                            "reviewer_name": "",
+                            "created_at": "",
+                            "product_title": "",
+                            "product_id": None,
+                            "rating": None
+                        }
+                        
+                        # Review text extract
+                        body = review.get("body", "")
+                        if not body and "review" in review:
+                            review_obj = review.get("review", {})
+                            if isinstance(review_obj, dict):
+                                body = review_obj.get("body", "")
+                        
+                        # HTML tags remove
+                        if body:
+                            import re
+                            body = re.sub(r'<[^>]+>', '', str(body))
+                            body = body.strip()
+                            
+                            if len(body) >= 10:
+                                review_data["body"] = body
+                                
+                                # Reviewer name
+                                review_data["reviewer_name"] = review.get("name", review.get("reviewer_name", ""))
+                                if not review_data["reviewer_name"] and "review" in review:
+                                    review_obj = review.get("review", {})
+                                    review_data["reviewer_name"] = review_obj.get("name", review_obj.get("reviewer_name", ""))
+                                
+                                # Review date
+                                review_data["created_at"] = review.get("created_at", review.get("date", ""))
+                                if not review_data["created_at"] and "review" in review:
+                                    review_obj = review.get("review", {})
+                                    review_data["created_at"] = review_obj.get("created_at", review_obj.get("date", ""))
+                                
+                                # Product info
+                                review_data["product_title"] = review.get("product_title", review.get("product_name", ""))
+                                review_data["product_id"] = review.get("product_id")
+                                
+                                # Rating
+                                review_data["rating"] = review.get("rating", review.get("stars"))
+                                
+                                reviews.append(review_data)
+                
+                if len(batch) < per_page:
+                    break
+                
+                page += 1
+                
+            except ShopifyAPIError:
+                break
+            except Exception as e:
+                print(f"Error fetching Judge.me reviews page {page}: {str(e)}")
+                break
+        
+        return reviews[:limit]
+    
+    async def extract_review_texts(self, limit: int = 500) -> list[str]:
+        """
+        Judge.me reviews থেকে শুধু text extract করে।
+        
+        Multiple pages থেকে reviews fetch করে এবং শুধু review text return করে।
+        
+        Args:
+            limit: Maximum reviews to fetch
             
-            page += 1
-            
-            if len(batch) < per_page:
+        Returns:
+            List of review text strings (cleaned and validated)
+        """
+        reviews = []
+        page = 1
+        per_page = 100  # Judge.me default per page
+        
+        while len(reviews) < limit:
+            try:
+                batch = await self.get_reviews(per_page=per_page, page=page)
+                
+                # যদি batch empty হয়, break
+                if not batch or len(batch) == 0:
+                    break
+                
+                # প্রতিটি review থেকে text extract করছি
+                for review in batch:
+                    if len(reviews) >= limit:
+                        break
+                    
+                    # Judge.me API response format:
+                    # review["body"] = review text
+                    # review["review"] = nested object (sometimes)
+                    body = None
+                    
+                    if isinstance(review, dict):
+                        # Direct "body" field
+                        body = review.get("body", "")
+                        
+                        # যদি "body" না থাকে, "review" object check করছি
+                        if not body and "review" in review:
+                            review_obj = review.get("review", {})
+                            if isinstance(review_obj, dict):
+                                body = review_obj.get("body", "")
+                        
+                        # HTML tags remove করছি
+                        if body:
+                            import re
+                            body = re.sub(r'<[^>]+>', '', str(body))
+                            body = body.strip()
+                            
+                            # Minimum length check (at least 10 characters)
+                            if len(body) >= 10:
+                                reviews.append(body)
+                    elif isinstance(review, str):
+                        # Direct string হলে
+                        if len(review.strip()) >= 10:
+                            reviews.append(review.strip())
+                
+                # যদি batch size per_page এর চেয়ে কম হয়, মানে last page
+                if len(batch) < per_page:
+                    break
+                
+                page += 1
+                
+            except ShopifyAPIError:
+                # API error হলে break করছি
+                break
+            except Exception as e:
+                # Unexpected error - log করছি কিন্তু continue করছি
+                print(f"Error fetching Judge.me reviews page {page}: {str(e)}")
                 break
         
         return reviews[:limit]
 
 
 # ============ MAIN FETCH FUNCTION ============
+
+async def fetch_shopify_reviews_with_metadata(
+    store_domain: str,
+    access_token: str,
+    limit: int = 500,
+    review_app: Optional[str] = None,
+    review_app_token: Optional[str] = None
+) -> list[dict]:
+    """
+    Shopify store থেকে reviews fetch করে full metadata সহ।
+    
+    Returns:
+        List of review dictionaries with:
+        - body: Review text
+        - reviewer_name: Reviewer name
+        - created_at: Review date
+        - product_title: Product name
+        - product_id: Product ID
+        - rating: Star rating
+    """
+    reviews: list[dict] = []
+    
+    # Validation
+    if not store_domain or not store_domain.strip():
+        raise ValueError("store_domain is required")
+    
+    if not access_token or not access_token.strip():
+        raise ValueError("access_token is required")
+    
+    if limit < 1 or limit > 10000:
+        raise ValueError("limit must be between 1 and 10000")
+    
+    # Initialize Shopify client
+    client = ShopifyClient(
+        store_domain=store_domain,
+        access_token=access_token
+    )
+    
+    # Verify connection
+    await client.verify_connection()
+    
+    # Judge.me integration - full metadata সহ
+    if review_app and review_app_token:
+        if review_app.lower() == "judge_me" or review_app.lower() == "judge.me":
+            try:
+                judge_me = JudgeMeClient(
+                    shop_domain=store_domain,
+                    api_token=review_app_token
+                )
+                reviews = await judge_me.get_full_reviews(limit=limit)
+                
+                if reviews and len(reviews) > 0:
+                    return reviews
+            except ShopifyAPIError as e:
+                raise ShopifyAPIError(
+                    message=f"Judge.me API error: {e.message}",
+                    status_code=e.status_code,
+                    response_data=e.response_data
+                )
+            except Exception as e:
+                print(f"Judge.me integration error: {str(e)}")
+    
+    # Fallback: শুধু text return করব
+    return reviews
+
 
 async def fetch_shopify_reviews(
     store_domain: str,
@@ -489,19 +750,32 @@ async def fetch_shopify_reviews(
     await client.verify_connection()
     
     # ========== APPROACH 1: Third-Party Review App ==========
+    # Judge.me বা অন্য review app ব্যবহার করলে এটা priority
     if review_app and review_app_token:
-        if review_app.lower() == "judge_me":
-            judge_me = JudgeMeClient(
-                shop_domain=store_domain,
-                api_token=review_app_token
-            )
+        if review_app.lower() == "judge_me" or review_app.lower() == "judge.me":
             try:
+                judge_me = JudgeMeClient(
+                    shop_domain=store_domain,  # store_domain normalize হবে JudgeMeClient এ
+                    api_token=review_app_token
+                )
                 reviews = await judge_me.extract_review_texts(limit=limit)
-                if reviews:
+                
+                # যদি reviews পাওয়া যায়, return করছি
+                if reviews and len(reviews) > 0:
                     return reviews
-            except Exception:
-                # Fallback to other methods if Judge.me fails
-                pass
+                else:
+                    # Reviews না পাওয়া গেলে fallback এ যাবে
+                    print(f"Judge.me API returned no reviews. Falling back to other methods.")
+            except ShopifyAPIError as e:
+                # Judge.me API specific error - user কে জানাচ্ছি
+                raise ShopifyAPIError(
+                    message=f"Judge.me API error: {e.message}. Please verify your API token and shop domain.",
+                    status_code=e.status_code,
+                    response_data=e.response_data
+                )
+            except Exception as e:
+                # Unexpected error - fallback এ যাবে
+                print(f"Judge.me integration error: {str(e)}. Falling back to other methods.")
     
     # ========== APPROACH 2: Product Metafields ==========
     # কিছু stores reviews metafields এ store করে

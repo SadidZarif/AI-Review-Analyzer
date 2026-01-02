@@ -34,6 +34,13 @@ export interface ReviewResult {
   
   // Model এর confidence score (0.0 থেকে 1.0)
   confidence: number;
+  
+  // Optional: Judge.me / Shopify Review Metadata
+  reviewer_name?: string;
+  review_date?: string;
+  product_name?: string;
+  product_id?: number;
+  rating?: number;
 }
 
 // TopicInfo: Extract করা topic/keyword এর তথ্য
@@ -169,4 +176,36 @@ export function getSentimentColor(sentiment: "positive" | "negative"): string {
 // getSentimentEmoji: Sentiment অনুযায়ী emoji return করে
 export function getSentimentEmoji(sentiment: "positive" | "negative"): string {
   return sentiment === "positive" ? "😊" : "😞";
+}
+
+// ============ SHOPIFY INTEGRATION ============
+
+// ShopifyRequest: Shopify store থেকে reviews fetch করার request
+export interface ShopifyRequest {
+  store_domain: string;
+  access_token: string;
+  limit?: number;
+  review_app?: string;
+  review_app_token?: string;
+}
+
+// analyzeShopifyReviews: Shopify store থেকে reviews fetch করে analyze করে
+export async function analyzeShopifyReviews(
+  request: ShopifyRequest
+): Promise<AnalysisResponse> {
+  const response = await fetch(`${API_BASE_URL}/analyze/shopify`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage = errorData.detail || `Shopify analysis failed: ${response.status}`;
+    throw new Error(errorMessage);
+  }
+  
+  return response.json() as Promise<AnalysisResponse>;
 }
