@@ -5,8 +5,24 @@
 // ============ CONFIGURATION ============
 
 // Backend server এর base URL
-// Development এ localhost:8000, production এ actual server URL হবে
-const API_BASE_URL = "http://localhost:8000";
+// Development এ .env থেকে VITE_API_BASE_URL নেবে; না থাকলে dynamic fallback
+const API_BASE_URL = (() => {
+  const fromEnv = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  if (fromEnv) {
+    return fromEnv.replace(/\/$/, "");
+  }
+
+  // Production/static build এ same-origin ধরে নেব
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+
+  // Development fallback (Vite dev server থাকলে)
+  if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
+    return "http://localhost:8000";
+  }
+
+  // Default: same origin, আর origin খালি হলে localhost fallback
+  return origin || "http://localhost:8000";
+})();
 
 
 // ============ TYPESCRIPT INTERFACES ============
