@@ -117,7 +117,7 @@ export default function AIChatPage() {
           const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
           const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
           console.log(`[AI Chat] Reviews date range: ${minDate.toISOString().slice(0, 10)} to ${maxDate.toISOString().slice(0, 10)}`);
-        }
+         }
       }
       
       const reviewsToSend = allReviews.map(r => ({
