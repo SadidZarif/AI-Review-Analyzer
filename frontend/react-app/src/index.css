@@ -1,8 +1,8 @@
 /* ============ GLOBAL STYLES ============ */
-/* Glassmorphism Dark Theme - AI Review Analyzer */
+/* Glassmorphism Dark Theme - RevuMax */
 
-/* ===== Google Fonts Import ===== */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+/* ===== Google Fonts Import (fallback if index.html not loaded) ===== */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 /* ===== CSS Variables ===== */
 :root {
@@ -10,11 +10,13 @@
   --primary: #135bec;
   --primary-light: #3b82f6;
   --primary-dark: #0d47a1;
-  
-  --background: #101622;
-  --surface: #1a1a1e;
-  --surface-light: #1e2433;
-  
+
+  /* Deep black background (সব page এ) */
+  --background: #000000;
+  /* Surface colors (cards/panels) */
+  --surface: #0b0b0d;
+  --surface-light: #111114;
+
   --green: #22c55e;
   --green-light: #4ade80;
   --red: #ef4444;
@@ -23,28 +25,44 @@
   --yellow-light: #fbbf24;
   --purple: #8b5cf6;
   --indigo: #6366f1;
-  
+
   --text-primary: #ffffff;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
-  
+
   --border: rgba(255, 255, 255, 0.05);
   --border-light: rgba(255, 255, 255, 0.1);
-  
+
+  /* Settings-style surfaces (example UI match) */
+  --panel-bg: rgba(15, 15, 15, 0.6);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --panel-blur: 16px;
+
   /* Effects */
-  --glow: 0 0 20px rgba(19, 91, 236, 0.15);
-  --glow-lg: 0 0 40px rgba(19, 91, 236, 0.25);
+  --glow: 0 0 26px rgba(19, 91, 236, 0.22);
+  --glow-lg: 0 0 60px rgba(19, 91, 236, 0.35);
   --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.15);
-  
+
+  /* Sidebar surface (example UI অনুযায়ী) */
+  --sidebar-bg: rgba(5, 5, 5, 0.95);
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+
+  /* Beehive rounding (global radii) */
+  --radius-sm: 1.1rem;
+  --radius-md: 1.6rem;
+  --radius-lg: 2.15rem;
+  --radius-xl: 2.75rem;
+  --radius-pill: 9999px;
+
   /* Typography */
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  
+
   color-scheme: dark;
   color: var(--text-primary);
   background-color: var(--background);
-  
+
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -65,7 +83,10 @@ html, body, #root {
 
 body {
   background: var(--background);
+  /* Horizontal scroll prevent */
   overflow-x: hidden;
+  /* Main scroll আমরা main-content container এর ভিতরে রাখবো */
+  overflow-y: hidden;
 }
 
 /* ===== Scrollbar ===== */
@@ -79,12 +100,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #282e39;
+  background: #333333;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f4756;
+  background: #555555;
 }
 
 /* ===== Selection ===== */
@@ -120,23 +141,96 @@ button:focus-visible {
 
 /* ===== Glass Panel Utility ===== */
 .glass-panel {
-  background: rgba(26, 26, 30, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  backdrop-filter: blur(var(--panel-blur));
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
 }
 
 .glass-sidebar {
-  background: rgba(16, 22, 34, 0.85);
+  background: var(--sidebar-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--sidebar-border);
+}
+
+/* ===== Shared UI Color Classes (no Tailwind) ===== */
+/* বাংলা: MetricCard / ReviewCard আগে tailwind-ish class ব্যবহার করত; এখন global classes দিয়ে consistent color */
+.change-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--panel-border);
+  font-weight: 900;
+  font-size: 0.75rem;
+}
+
+.change-badge.positive {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.25);
+  color: #4ade80;
+}
+
+.change-badge.negative {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #f87171;
+}
+
+.change-badge.neutral {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.25);
+  color: #93c5fd;
+}
+
+.metric-progress-fill.primary {
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+}
+
+.metric-progress-fill.positive {
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+
+.metric-progress-fill.negative {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.sentiment-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--panel-border);
+  font-weight: 900;
+  font-size: 0.75rem;
+}
+
+.sentiment-badge.positive {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.25);
+  color: #4ade80;
+}
+
+.sentiment-badge.negative {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #f87171;
+}
+
+.sentiment-badge.neutral {
+  background: rgba(234, 179, 8, 0.12);
+  border-color: rgba(234, 179, 8, 0.25);
+  color: #fbbf24;
 }
 
 /* ===== App Layout ===== */
 .app {
   display: flex;
-  min-height: 100vh;
+  /* Full-height app shell */
+  height: 100vh;
   background: var(--background);
   position: relative;
   overflow: hidden;
@@ -146,7 +240,7 @@ button:focus-visible {
 .bg-glow {
   position: fixed;
   border-radius: 50%;
-  filter: blur(120px);
+  filter: blur(150px);
   pointer-events: none;
   z-index: 0;
 }
@@ -156,7 +250,8 @@ button:focus-visible {
   left: -10%;
   width: 500px;
   height: 500px;
-  background: rgba(19, 91, 236, 0.2);
+  /* Glow keep but subtle যাতে black background dominate করে */
+  background: rgba(19, 91, 236, 0.20);
 }
 
 .bg-glow-secondary {
@@ -164,16 +259,20 @@ button:focus-visible {
   right: -10%;
   width: 600px;
   height: 600px;
-  background: rgba(139, 92, 246, 0.1);
+  background: rgba(139, 92, 246, 0.12);
 }
 
 /* ===== Main Content Area ===== */
 .main-content {
   flex: 1;
+  /* App shell full height এর মধ্যে scroll container */
+  height: 100vh;
   overflow-y: auto;
   overflow-x: hidden;
   position: relative;
-  z-index: 10;
+  /* NOTE: এখানে z-index দিলে নতুন stacking context তৈরি হয়।
+     সেই ক্ষেত্রে main-content এর ভিতরের modal overlay (fixed) sidebar এর উপরে উঠতে পারে না।
+     তাই z-index remove করেছি যাতে modal overlay পুরো viewport cover করতে পারে। */
 }
 
 /* ===== Navigation Bar ===== */
@@ -196,7 +295,7 @@ button:focus-visible {
   align-items: center;
   gap: 0.75rem;
   font-size: 1.25rem;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--text-primary);
   background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
   -webkit-background-clip: text;
@@ -216,9 +315,9 @@ button:focus-visible {
   gap: 0.5rem;
   padding: 0.625rem 1rem;
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-secondary);
-  border-radius: 1rem;
+  border-radius: var(--radius-md);
   transition: all 0.2s ease;
 }
 
@@ -284,7 +383,7 @@ button .material-symbols-outlined {
   padding: 0.75rem 1rem;
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 0.875rem;
+  border-radius: var(--radius-md);
   color: #f87171;
   font-size: 0.875rem;
 }
@@ -305,8 +404,8 @@ button .material-symbols-outlined {
   background: var(--primary);
   color: #fff;
   font-size: 1rem;
-  font-weight: 600;
-  border-radius: 1rem;
+  font-weight: 700;
+  border-radius: var(--radius-lg);
   border: none;
   cursor: pointer;
   box-shadow: var(--glow);
@@ -323,4 +422,5 @@ button .material-symbols-outlined {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
 

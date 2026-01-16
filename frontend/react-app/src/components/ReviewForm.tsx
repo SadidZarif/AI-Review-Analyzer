@@ -154,7 +154,7 @@ function ReviewForm({ onAnalysisComplete, onLoadingChange }: ReviewFormProps) {
             className="product-link-input"
           />
           <small className="input-hint">
-            Paste a product URL for reference (scraping coming soon)
+            Paste a product URL for reference (optional).
           </small>
         </div>
         

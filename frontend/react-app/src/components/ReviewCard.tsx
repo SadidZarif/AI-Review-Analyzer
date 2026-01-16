@@ -19,6 +19,8 @@ interface ReviewCardProps {
   // AI features
   aiSuggestion?: string;        // AI generated reply suggestion
   onQuickReply?: () => void;   // Quick reply button callback
+  onGenerateSuggestion?: () => void; // AI suggestion generate trigger
+  isGeneratingSuggestion?: boolean;  // loading state
   
   // Navigation
   onClick?: () => void;         // Card click করলে ReviewDetails page এ যাবে
@@ -34,15 +36,12 @@ function ReviewCard({
   sentiment,
   aiSuggestion,
   onQuickReply,
+  onGenerateSuggestion,
+  isGeneratingSuggestion,
   onClick
 }: ReviewCardProps) {
   
-  // Sentiment badge এর colors
-  const sentimentColors = {
-    positive: 'bg-green-500/10 text-green-400 border-green-500/20',
-    negative: 'bg-red-500/10 text-red-400 border-red-500/20',
-    neutral: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-  };
+  // বাংলা: Tailwind-style class string বাদ দিয়ে simple CSS classes ব্যবহার করছি
   
   return (
     <div 
@@ -69,7 +68,7 @@ function ReviewCard({
         </div>
         
         {/* Sentiment Badge */}
-        <span className={`sentiment-badge ${sentimentColors[sentiment]}`}>
+        <span className={`sentiment-badge ${sentiment}`}>
           {sentiment === 'positive' && (
             <>
               <span className="material-symbols-outlined sentiment-icon">sentiment_satisfied</span>
@@ -100,16 +99,37 @@ function ReviewCard({
       <p className="review-text-content">{reviewText}</p>
       
       {/* AI Suggestion Section - যদি available থাকে */}
-      {aiSuggestion && (
+      {(aiSuggestion || onGenerateSuggestion) && (
         <div className="ai-suggestion-section">
           <div className="ai-suggestion-header">
             <span className="ai-icon">🤖</span>
             <span className="ai-label">AI Suggestion:</span>
           </div>
-          <p className="ai-suggestion-text">{aiSuggestion}</p>
+          {aiSuggestion ? (
+            <p className="ai-suggestion-text">{aiSuggestion}</p>
+          ) : (
+            <p className="ai-suggestion-text ai-placeholder">
+              {/* বাংলা: dummy text দেখাব না; user click করলে real Groq API call হবে */}
+              Click “Generate” to create a real-time AI reply.
+            </p>
+          )}
           
-          {/* Quick Reply Button */}
-          {onQuickReply && (
+          {/* Generate Button (যদি suggestion না থাকে) */}
+          {!aiSuggestion && onGenerateSuggestion && (
+            <button
+              className="quick-reply-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onGenerateSuggestion();
+              }}
+              disabled={isGeneratingSuggestion}
+            >
+              {isGeneratingSuggestion ? "Generating..." : "Generate"}
+            </button>
+          )}
+
+          {/* Quick Reply Button (যদি suggestion থাকে) */}
+          {aiSuggestion && onQuickReply && (
             <button 
               className="quick-reply-btn"
               onClick={(e) => {

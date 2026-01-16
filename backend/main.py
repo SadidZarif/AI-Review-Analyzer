@@ -13,6 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 # .env file থেকে sensitive data (API tokens) load করবে
 from dotenv import load_dotenv
 import os
+import re
+from datetime import datetime
 
 # .env file load করছি (যদি থাকে)
 load_dotenv()
@@ -24,7 +26,18 @@ from schemas import (
     ShopifyRequest,  # Shopify integration এর জন্য
     AnalysisResponse, 
     ReviewResult, 
-    TopicInfo
+    TopicInfo,
+    ShopifyProductOut,
+    JudgeMeReviewOut,
+    ProductAnalyticsOut,
+    GroqReplyRequest,
+    GroqReplyResponse,
+    GroqSummaryRequest,
+    GroqSummaryResponse,
+    GroqCampaignIdeaRequest,
+    GroqCampaignIdeaResponse,
+    AiChatRequest,
+    AiChatResponse
 )
 
 # আমাদের তৈরি করা ML models import করছি
@@ -38,8 +51,12 @@ from integrations.shopify import (
     fetch_shopify_reviews,
     fetch_shopify_reviews_with_metadata,
     ShopifyAPIError,
-    SUPPORTED_REVIEW_APPS
+    SUPPORTED_REVIEW_APPS,
+    ShopifyClient
 )
+
+# Groq AI integration (LLM)
+from groq_ai import groq_chat_completion, DEFAULT_MODEL, GroqError
 
 
 # ============ APP SETUP ============
@@ -371,6 +388,177 @@ def get_supported_review_apps():
     }
 
 
+# ---------- Shopify Products Endpoint ----------
+# Shopify store এর products list return করবে (Products page এ ব্যবহার হবে)
+
+@app.post("/shopify/products", response_model=list[ShopifyProductOut])
+async def get_shopify_products(request: ShopifyRequest):
+    """
+    Shopify store এর products list fetch করে।
+    
+    Frontend Products page এ cards দেখানোর জন্য basic product info return করে।
+    """
+    if not request.store_domain or not request.store_domain.strip():
+        raise HTTPException(status_code=400, detail="store_domain is required")
+    if not request.access_token or not request.access_token.strip():
+        raise HTTPException(status_code=400, detail="access_token is required")
+
+    try:
+        client = ShopifyClient(store_domain=request.store_domain, access_token=request.access_token)
+        await client.verify_connection()
+        products = await client.get_products(limit=min(request.limit or 250, 250))
+
+        return [
+            ShopifyProductOut(
+                id=p.id,
+                title=p.title,
+                handle=p.handle,
+                vendor=p.vendor,
+                product_type=p.product_type,
+                tags=p.tags,
+                image_url=p.image_url
+            )
+            for p in products
+        ]
+    except ShopifyAPIError as e:
+        raise HTTPException(status_code=e.status_code or 500, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch products: {str(e)}")
+
+
+# ---------- Shopify Reviews (Judge.me) Endpoint ----------
+# Full raw reviews list return করবে (Reviews page এ ব্যবহার হবে)
+
+@app.post("/shopify/reviews", response_model=list[JudgeMeReviewOut])
+async def get_shopify_reviews(request: ShopifyRequest):
+    """
+    Judge.me থেকে full reviews (metadata সহ) fetch করে return করে।
+    
+    NOTE: Judge.me API token backend এর .env থেকে auto load হবে (JUDGE_ME_API_TOKEN)।
+    """
+    if not request.store_domain or not request.store_domain.strip():
+        raise HTTPException(status_code=400, detail="store_domain is required")
+    if not request.access_token or not request.access_token.strip():
+        raise HTTPException(status_code=400, detail="access_token is required")
+
+    # Judge.me token resolve করছি
+    review_app = request.review_app or "judge_me"
+    review_app_token = request.review_app_token or os.getenv("JUDGE_ME_API_TOKEN")
+    if not review_app_token:
+        raise HTTPException(status_code=400, detail="JUDGE_ME_API_TOKEN not set in backend environment")
+
+    try:
+        reviews = await fetch_shopify_reviews_with_metadata(
+            store_domain=request.store_domain,
+            access_token=request.access_token,
+            limit=request.limit or 500,
+            review_app=review_app,
+            review_app_token=review_app_token
+        )
+        return [
+            JudgeMeReviewOut(
+                id=r.get("id") or 0,
+                body=r.get("body", ""),
+                reviewer_name=r.get("reviewer_name"),
+                created_at=r.get("created_at"),
+                product_title=r.get("product_title"),
+                product_id=r.get("product_id"),
+                rating=r.get("rating")
+            )
+            for r in reviews
+            if r.get("body")
+        ]
+    except ShopifyAPIError as e:
+        raise HTTPException(status_code=e.status_code or 500, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch reviews: {str(e)}")
+
+
+# ---------- Product Analytics Endpoint ----------
+# Reviews থেকে per-product sentiment breakdown + rating compute করবে
+
+@app.post("/shopify/products/analytics", response_model=list[ProductAnalyticsOut])
+async def get_product_analytics(request: ShopifyRequest):
+    """
+    Judge.me reviews নিয়ে per-product analytics বানায়:
+    - avg rating
+    - positive/negative breakdown (sentiment model দিয়ে)
+    - top topics (positive/negative)
+    """
+    if not request.store_domain or not request.store_domain.strip():
+        raise HTTPException(status_code=400, detail="store_domain is required")
+    if not request.access_token or not request.access_token.strip():
+        raise HTTPException(status_code=400, detail="access_token is required")
+
+    review_app = request.review_app or "judge_me"
+    review_app_token = request.review_app_token or os.getenv("JUDGE_ME_API_TOKEN")
+    if not review_app_token:
+        raise HTTPException(status_code=400, detail="JUDGE_ME_API_TOKEN not set in backend environment")
+
+    try:
+        reviews = await fetch_shopify_reviews_with_metadata(
+            store_domain=request.store_domain,
+            access_token=request.access_token,
+            limit=request.limit or 500,
+            review_app=review_app,
+            review_app_token=review_app_token
+        )
+
+        # Group reviews by product_id (fallback: product_title)
+        grouped: dict[str, list[dict]] = {}
+        for r in reviews:
+            body = r.get("body", "")
+            if not body:
+                continue
+            key = str(r.get("product_id") or r.get("product_title") or "unknown")
+            grouped.setdefault(key, []).append(r)
+
+        analytics: list[ProductAnalyticsOut] = []
+
+        for _key, group in grouped.items():
+            texts = [g.get("body", "") for g in group if g.get("body")]
+            if not texts:
+                continue
+
+            # Sentiment predictions
+            preds = analyzer.predict(texts)
+            summary = analyzer.get_prediction_summary(preds)
+
+            # Topics
+            sentiments = [p["sentiment"] for p in preds]
+            pos_topics, neg_topics = TopicExtractor.extract_topics(
+                reviews=texts,
+                sentiments=sentiments,
+                top_k=3
+            )
+
+            # Ratings (Judge.me rating থাকলে average)
+            ratings = [g.get("rating") for g in group if isinstance(g.get("rating"), int)]
+            avg_rating = round(sum(ratings) / len(ratings), 2) if ratings else None
+
+            first = group[0]
+            analytics.append(ProductAnalyticsOut(
+                product_id=first.get("product_id"),
+                product_title=first.get("product_title") or "Unknown Product",
+                review_count=len(texts),
+                average_rating=avg_rating,
+                positive_percentage=summary["positive_percentage"],
+                negative_percentage=summary["negative_percentage"],
+                positive_count=summary["positive_count"],
+                negative_count=summary["negative_count"],
+                top_positive_topics=[t["topic"] for t in pos_topics],
+                top_negative_topics=[t["topic"] for t in neg_topics]
+            ))
+
+        # Sort: বেশি review যাদের, আগে
+        analytics.sort(key=lambda a: a.review_count, reverse=True)
+        return analytics
+    except ShopifyAPIError as e:
+        raise HTTPException(status_code=e.status_code or 500, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to build analytics: {str(e)}")
+
+
 # ---------- Root Endpoint ----------
 # Base URL এ গেলে কী দেখাবে
 
@@ -389,6 +577,623 @@ def root():
             "supported_apps": "GET /shopify/supported-apps"
         }
     }
+
+
+# ============ GROQ AI ENDPOINTS ============
+# NOTE: Bengali comments রাখা হলো
+
+@app.post("/ai/reply", response_model=GroqReplyResponse)
+async def generate_ai_reply(request: GroqReplyRequest):
+    """
+    Review text থেকে Groq (llama-3.1-8b-instant) দিয়ে reply generate করে।
+    """
+    if not request.review_text or not request.review_text.strip():
+        raise HTTPException(status_code=400, detail="review_text is required")
+
+    tone = (request.tone or "empathetic").strip().lower()
+    if tone not in ("empathetic", "formal", "short"):
+        tone = "empathetic"
+
+    # System prompt (brand-safe + helpful)
+    system = (
+        "You are a helpful customer support assistant for an e-commerce store. "
+        "Write concise, professional, and human-sounding replies to customer reviews. "
+        "Do not mention that you are an AI. Do not fabricate refunds or policies. "
+        "If the review mentions an issue, apologize and suggest next steps."
+    )
+
+    # User prompt (context)
+    name = request.customer_name or "Customer"
+    product = request.product_name or "the product"
+    store = request.store_name or "our store"
+
+    style = {
+        "empathetic": "Warm, empathetic, and solution-oriented. 4-8 sentences.",
+        "formal": "Formal, professional tone. 4-8 sentences.",
+        "short": "Short and direct. 2-4 sentences."
+    }[tone]
+
+    user = (
+        f"Store: {store}\n"
+        f"Customer name: {name}\n"
+        f"Product: {product}\n"
+        f"Tone: {style}\n\n"
+        f"Customer review:\n{request.review_text}\n\n"
+        + (f"Customer preference/instructions:\n{request.custom_instruction.strip()}\n\n"
+           if request.custom_instruction and request.custom_instruction.strip() else "")
+        + "Write the reply now."
+    )
+
+    try:
+        reply = await groq_chat_completion(
+            system_prompt=system,
+            user_prompt=user,
+            model=DEFAULT_MODEL,
+            temperature=0.2,
+            max_tokens=220,
+            use_cache=True
+        )
+        return GroqReplyResponse(reply_text=reply, model="assistant")
+    except GroqError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/ai/summary", response_model=GroqSummaryResponse)
+async def generate_ai_summary(request: GroqSummaryRequest):
+    """
+    Dashboard/Analysis এর জন্য executive summary generate করে।
+    """
+    system = (
+        "You are an analytics assistant for e-commerce review insights. "
+        "Given statistics and topics, write a short executive summary and 3-5 action items. "
+        "Be concrete and data-driven."
+    )
+    title = request.title or "Review Insights"
+    dr = request.date_range or "selected range"
+    user = (
+        f"Title: {title}\n"
+        f"Date range: {dr}\n"
+        f"Total reviews: {request.total_reviews}\n"
+        f"Positive %: {request.positive_percentage}\n"
+        f"Negative %: {request.negative_percentage}\n"
+        f"Top positive topics: {', '.join(request.top_positive_topics[:6])}\n"
+        f"Top negative topics: {', '.join(request.top_negative_topics[:6])}\n"
+        f"Sample reviews (may be empty):\n- " + "\n- ".join([s[:240] for s in request.sample_reviews[:6]]) + "\n\n"
+        "Return output as:\n"
+        "Summary: <one paragraph>\n"
+        "Actions:\n"
+        "- <action 1>\n"
+        "- <action 2>\n"
+        "- <action 3>\n"
+    )
+    try:
+        text = await groq_chat_completion(
+            system_prompt=system,
+            user_prompt=user,
+            model=DEFAULT_MODEL,
+            temperature=0.3,
+            max_tokens=350,
+            use_cache=True
+        )
+        # Very simple parse
+        summary = text
+        actions: list[str] = []
+        if "Actions:" in text:
+            parts = text.split("Actions:", 1)
+            summary = parts[0].replace("Summary:", "").strip()
+            actions = [ln.strip("- ").strip() for ln in parts[1].splitlines() if ln.strip().startswith("-")]
+        return GroqSummaryResponse(summary=summary, key_actions=actions[:6], model="assistant")
+    except GroqError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/ai/campaign-idea", response_model=GroqCampaignIdeaResponse)
+async def generate_ai_campaign(request: GroqCampaignIdeaRequest):
+    """
+    Campaigns page এর AI Opportunity text generate করে।
+    """
+    system = (
+        "You are a marketing strategist for an e-commerce brand. "
+        "Create a campaign idea based on review sentiment and topics. "
+        "Return a short title and a 2-3 sentence description."
+    )
+    store = request.store_name or "the store"
+    user = (
+        f"Store: {store}\n"
+        f"Total reviews: {request.total_reviews}\n"
+        f"Positive %: {request.positive_percentage}\n"
+        f"Negative %: {request.negative_percentage}\n"
+        f"Top positive topic: {request.positive_topic or 'N/A'}\n"
+        f"Top negative topic: {request.negative_topic or 'N/A'}\n\n"
+        "Generate one campaign idea. Format:\n"
+        "Title: ...\n"
+        "Description: ...\n"
+    )
+    try:
+        text = await groq_chat_completion(
+            system_prompt=system,
+            user_prompt=user,
+            model=DEFAULT_MODEL,
+            temperature=0.5,
+            max_tokens=220,
+            use_cache=True
+        )
+        title = "Campaign Idea"
+        desc = text.strip()
+        for line in text.splitlines():
+            if line.lower().startswith("title:"):
+                title = line.split(":", 1)[1].strip() or title
+            if line.lower().startswith("description:"):
+                desc = line.split(":", 1)[1].strip() or desc
+        return GroqCampaignIdeaResponse(title=title, description=desc, model="assistant")
+    except GroqError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/ai/chat", response_model=AiChatResponse)
+async def ai_chat(request: AiChatRequest):
+    """
+    Enhanced AI chat with date range filtering, real review data, and all user intents.
+    Supports: stats, breakdowns, topics, recommendations, reporting, export, screenshot guidance.
+    """
+    # Import chat_handler functions
+    try:
+        from chat_handler import (
+            parse_date_range, filter_reviews_by_date, compute_stats_from_reviews,
+            extract_topics_from_reviews, format_response_template,
+            generate_screenshot_guidance, generate_export_guidance,
+            build_evidence_quotes
+        )
+    except Exception as e:
+        # If import fails, use simple fallback
+        import traceback
+        error_msg = f"Chat handler import error: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)  # Log for debugging
+        
+        # Return a simple response that still works
+        analysis = request.analysis or {}
+        total = int(analysis.get("total_reviews") or 0)
+        pos_cnt = int(analysis.get("positive_count") or 0)
+        neg_cnt = int(analysis.get("negative_count") or 0)
+        return AiChatResponse(
+            answer=f"Total reviews: {total}. Positive: {pos_cnt}, Negative: {neg_cnt}. (Note: Advanced features temporarily unavailable)",
+            model="assistant"
+        )
+    
+    q = (request.question or "").strip()
+    if not q:
+        raise HTTPException(status_code=400, detail="question is required")
+
+    try:
+        ql = q.lower()
+        
+        # Get raw reviews data (safe handling)
+        # Prefer request.reviews; if too few, optionally fetch from Shopify/Judge.me directly
+        raw_reviews = getattr(request, 'reviews', None) or []
+        if not isinstance(raw_reviews, list):
+            raw_reviews = []
+
+        # Optional server-side fetch (avoids frontend cache/limit). Uses ShopifyRequest-like payload.
+        shop = getattr(request, "shopify", None)
+        try:
+            shop_dict = shop.model_dump() if hasattr(shop, "model_dump") else (shop or None)
+        except Exception:
+            shop_dict = None
+
+        if (not raw_reviews or len(raw_reviews) < 100) and isinstance(shop_dict, dict):
+            try:
+                review_app_token = shop_dict.get("review_app_token") or os.getenv("JUDGE_ME_API_TOKEN")
+                fetched = await fetch_shopify_reviews_with_metadata(
+                    store_domain=shop_dict.get("store_domain") or "",
+                    access_token=shop_dict.get("access_token") or "",
+                    limit=int(shop_dict.get("limit") or 10000),
+                    review_app=shop_dict.get("review_app") or "judge_me",
+                    review_app_token=review_app_token
+                )
+                if isinstance(fetched, list) and fetched:
+                    raw_reviews = fetched
+                    print(f"[AI Chat] Server-side fetched reviews: {len(raw_reviews)}")
+            except Exception as e:
+                print(f"[AI Chat] Server-side fetch failed: {e}")
+        
+        # Debug: Log how many reviews we received
+        print(f"[AI Chat] Received {len(raw_reviews)} reviews from frontend")
+        
+        # Parse date range from question or use provided
+        parsed_range = None
+        try:
+            parsed_range = parse_date_range(q)
+            if parsed_range:
+                print(f"[AI Chat] Parsed date range from question: {parsed_range}")
+        except Exception as e:
+            print(f"Date range parsing error: {e}")
+        
+        used_range = parsed_range or request.date_range
+        if used_range:
+            print(f"[AI Chat] Using date range: {used_range}")
+        
+        # If user asked for a long historical range but we have few reviews, try server-side fetch
+        if isinstance(shop_dict, dict):
+            try:
+                wants_history = bool(re.search(r"\b20(2[0-9])\b|থেকে|theke|porjonto|পর্যন্ত", q, re.IGNORECASE))
+            except Exception:
+                wants_history = False
+
+            try:
+                span_days = None
+                if isinstance(used_range, dict) and used_range.get("start") and used_range.get("end"):
+                    d0 = datetime.strptime(str(used_range["start"]), "%Y-%m-%d")
+                    d1 = datetime.strptime(str(used_range["end"]), "%Y-%m-%d")
+                    span_days = abs((d1 - d0).days)
+            except Exception:
+                span_days = None
+
+            if (wants_history or (span_days is not None and span_days > 90)) and len(raw_reviews) < 1000:
+                try:
+                    review_app_token = shop_dict.get("review_app_token") or os.getenv("JUDGE_ME_API_TOKEN")
+                    fetched = await fetch_shopify_reviews_with_metadata(
+                        store_domain=shop_dict.get("store_domain") or "",
+                        access_token=shop_dict.get("access_token") or "",
+                        limit=int(shop_dict.get("limit") or 10000),
+                        review_app=shop_dict.get("review_app") or "judge_me",
+                        review_app_token=review_app_token
+                    )
+                    if isinstance(fetched, list) and fetched and len(fetched) > len(raw_reviews):
+                        raw_reviews = fetched
+                        print(f"[AI Chat] Server-side fetched more reviews: {len(raw_reviews)}")
+                except Exception as e:
+                    print(f"[AI Chat] History fetch failed: {e}")
+
+        # Filter reviews by date range and product
+        filtered_reviews = raw_reviews
+        try:
+            if used_range and isinstance(used_range, dict):
+                before_count = len(filtered_reviews)
+                filtered_reviews = filter_reviews_by_date(filtered_reviews, used_range)
+                after_count = len(filtered_reviews)
+                print(f"[AI Chat] Filtered reviews: {before_count} -> {after_count} (date range: {used_range})")
+        except Exception as e:
+            print(f"Date filtering error: {e}")
+            # Continue with unfiltered reviews
+        
+        if request.product_id:
+            try:
+                filtered_reviews = [r for r in filtered_reviews if r and str(r.get("product_id", "")) == str(request.product_id)]
+            except Exception as e:
+                print(f"Product filtering error: {e}")
+        
+        # Compute stats from filtered reviews (real data, no hallucination)
+        try:
+            stats = compute_stats_from_reviews(filtered_reviews)
+        except Exception as e:
+            print(f"Stats computation error: {e}")
+            stats = {
+                "total": 0,
+                "positive_count": 0,
+                "negative_count": 0,
+                "neutral_count": 0,
+                "positive_pct": 0.0,
+                "negative_pct": 0.0,
+                "neutral_pct": 0.0,
+                "avg_rating": None,
+            }
+        
+        # Extract topics
+        try:
+            negative_topics = extract_topics_from_reviews(filtered_reviews, "negative", 5)
+            positive_topics = extract_topics_from_reviews(filtered_reviews, "positive", 5)
+        except Exception as e:
+            print(f"Topic extraction error: {e}")
+            negative_topics = []
+            positive_topics = []
+        
+        # Evidence quotes (grounded, max 3 quotes, max 12 words each)
+        evidence_quotes = []
+        try:
+            evidence_quotes = build_evidence_quotes(q, filtered_reviews, max_quotes=3)
+        except Exception as e:
+            print(f"Evidence retrieval error: {e}")
+            evidence_quotes = []
+
+        # Handle specific user intents
+        
+        # 1) Screenshot/Report UI guidance
+        if any(k in ql for k in ["screenshot", "ui generate", "report layout", "ki show korbo"]):
+            topics_dict = {"negative": negative_topics, "positive": positive_topics}
+            guidance = generate_screenshot_guidance(stats, topics_dict)
+            return AiChatResponse(
+                answer=guidance,
+                model="assistant",
+                suggested_actions=["Capture screenshot", "Share with team"],
+                used_filters={"date_range": used_range, "product_id": request.product_id} if (used_range or request.product_id) else None
+            )
+        
+        # 2) Export guidance
+        if any(k in ql for k in ["export", "csv", "download", "export kivabe"]):
+            guidance = generate_export_guidance()
+            return AiChatResponse(
+                answer=guidance,
+                model="assistant",
+                suggested_actions=["Click Export CSV", "Verify date range"],
+                used_filters={"date_range": used_range} if used_range else None
+            )
+        
+        # 3) Quick stats
+        if any(k in ql for k in ["total", "koyta", "how many", "koto"]):
+            if any(k in ql for k in ["negative", "neg", "kharap"]):
+                answer = f"Negative reviews: {stats['negative_count']} ({stats['negative_pct']}%)."
+                if negative_topics:
+                    top_issue = negative_topics[0]
+                    answer += f" Top issue: '{top_issue[0]}' ({top_issue[1]} mentions)."
+                return AiChatResponse(
+                    answer=answer,
+                    model="assistant",
+                    suggested_actions=["Check top negative topics", "Review product page"] if stats['total'] > 0 else None,
+                    used_filters={"date_range": used_range} if used_range else None
+                )
+            
+            if any(k in ql for k in ["positive", "pos", "valo", "bhalo"]):
+                answer = f"Positive reviews: {stats['positive_count']} ({stats['positive_pct']}%)."
+                if positive_topics:
+                    top_praise = positive_topics[0]
+                    answer += f" Top praise: '{top_praise[0]}' ({top_praise[1]} mentions)."
+                return AiChatResponse(
+                    answer=answer,
+                    model="assistant",
+                    suggested_actions=["Highlight in marketing", "Feature in product page"] if stats['total'] > 0 else None,
+                    used_filters={"date_range": used_range} if used_range else None
+                )
+            
+            if "neutral" in ql:
+                return AiChatResponse(
+                    answer=f"Neutral reviews: {stats['neutral_count']} ({stats['neutral_pct']}%).",
+                    model="assistant",
+                    used_filters={"date_range": used_range} if used_range else None
+                )
+            
+            if any(k in ql for k in ["rating", "average", "avg"]):
+                if stats['avg_rating']:
+                    return AiChatResponse(
+                        answer=f"Average rating: {stats['avg_rating']}/5.0 (from {len([r for r in filtered_reviews if r.get('rating')])} rated reviews).",
+                        model="assistant",
+                        used_filters={"date_range": used_range} if used_range else None
+                    )
+                else:
+                    return AiChatResponse(
+                        answer="Rating data not available. Reviews may not have ratings.",
+                        model="assistant",
+                        used_filters={"date_range": used_range} if used_range else None
+                    )
+            
+            # Total reviews
+            answer = format_response_template(
+                key_numbers=[
+                    f"Total reviews: {stats['total']}",
+                    f"Positive: {stats['positive_count']} ({stats['positive_pct']}%)",
+                    f"Neutral: {stats['neutral_count']} ({stats['neutral_pct']}%)",
+                    f"Negative: {stats['negative_count']} ({stats['negative_pct']}%)"
+                ],
+                insight=f"In the selected range, {stats['positive_pct']}% are positive and {stats['negative_pct']}% are negative.",
+                next_actions=["Check top negative topics to reduce returns", "Highlight positive feedback in marketing"]
+            )
+            return AiChatResponse(
+                answer=answer,
+                model="assistant",
+                used_filters={"date_range": used_range} if used_range else None
+            )
+        
+        # 4) Topics & Pain Points
+        if any(k in ql for k in ["topic", "issue", "problem", "pain", "complaint", "praise"]):
+            if any(k in ql for k in ["negative", "issue", "problem", "complaint", "kharap"]):
+                if not negative_topics:
+                    return AiChatResponse(
+                        answer="No negative issues found in the selected range. Great news!",
+                        model="assistant",
+                        used_filters={"date_range": used_range} if used_range else None
+                    )
+                
+                top_issues = negative_topics[:3]
+                issue_list = [f"'{t[0]}' ({t[1]} mentions)" for t in top_issues]
+                
+                # Get example review for top issue
+                evidence = []
+                top_issue_keyword = top_issues[0][0]
+                for r in filtered_reviews[:5]:
+                    body = (r.get("body") or r.get("text") or "").lower()
+                    if top_issue_keyword in body and len(evidence) < 2:
+                        text = (r.get("body") or r.get("text") or "")[:60]
+                        evidence.append(text)
+                
+                answer = format_response_template(
+                    key_numbers=[f"Top negative issues: {', '.join(issue_list)}"],
+                    insight=f"Most common issue is '{top_issues[0][0]}' with {top_issues[0][1]} mentions. Consider addressing this first.",
+                    next_actions=[
+                        f"Update product page to address '{top_issues[0][0]}'",
+                        "Add sizing guide or FAQ section",
+                        "Review customer support templates"
+                    ],
+                    evidence=evidence
+                )
+                return AiChatResponse(
+                    answer=answer,
+                    model="assistant",
+                    suggested_actions=[f"Fix {top_issues[0][0]} issue", "Update product listing"],
+                    used_filters={"date_range": used_range} if used_range else None
+                )
+            
+            if any(k in ql for k in ["positive", "praise", "good", "valo"]):
+                if not positive_topics:
+                    return AiChatResponse(
+                        answer="No specific positive topics identified in the selected range.",
+                        model="assistant",
+                        used_filters={"date_range": used_range} if used_range else None
+                    )
+                
+                top_praises = positive_topics[:3]
+                praise_list = [f"'{t[0]}' ({t[1]} mentions)" for t in top_praises]
+                
+                answer = format_response_template(
+                    key_numbers=[f"Top positive topics: {', '.join(praise_list)}"],
+                    insight=f"Customers love '{top_praises[0][0]}' - highlight this in marketing and product pages.",
+                    next_actions=[
+                        f"Feature '{top_praises[0][0]}' in product description",
+                        "Use in social media campaigns",
+                        "Add to product highlights"
+                    ]
+                )
+                return AiChatResponse(
+                    answer=answer,
+                    model="assistant",
+                    suggested_actions=["Create marketing campaign", "Update product page"],
+                    used_filters={"date_range": used_range} if used_range else None
+                )
+        
+        # 5) Product-specific queries
+        if request.product_id and any(k in ql for k in ["product", "item", "this product"]):
+            product_reviews = [r for r in filtered_reviews if str(r.get("product_id", "")) == str(request.product_id)]
+            if not product_reviews:
+                return AiChatResponse(
+                    answer="No reviews found for this product in the selected range.",
+                    model="assistant",
+                    used_filters={"date_range": used_range, "product_id": request.product_id} if (used_range or request.product_id) else None
+                )
+        
+        # 6) Recommendations
+        if any(k in ql for k in ["recommend", "suggest", "improve", "fix", "what should", "ki kora"]):
+            actions = []
+            if negative_topics:
+                top_issue = negative_topics[0]
+                actions.append(f"Address '{top_issue[0]}' issue: {top_issue[1]} customers mentioned this")
+            if positive_topics:
+                top_praise = positive_topics[0]
+                actions.append(f"Highlight '{top_praise[0]}': {top_praise[1]} customers praised this")
+            actions.append("Update product listing with clear sizing/features")
+            actions.append("Create FAQ section for common questions")
+            
+            answer = format_response_template(
+                key_numbers=[f"Based on {stats['total']} reviews"],
+                insight="Focus on addressing negative issues first, then amplify positive feedback.",
+                next_actions=actions
+            )
+            return AiChatResponse(
+                answer=answer,
+                model="assistant",
+                suggested_actions=actions[:3] if actions else None,
+                used_filters={"date_range": used_range} if used_range else None
+            )
+        
+        # Default: Use LLM with grounded data
+        system = (
+            "You are an AI assistant helping users understand their review data.\n\n"
+            "CRITICAL RULES:\n"
+            "1. NEVER guess or hallucinate numbers, dates, or percentages.\n"
+            "2. Use ONLY the provided statistics and data.\n"
+            "3. If data is missing, say: 'I don't have that data yet. Please connect a data source or upload reviews.'\n"
+            "4. Always cite numbers from the provided stats.\n"
+            "5. When computing, show brief formula (e.g., 'Positive % = positive_count / total_reviews').\n\n"
+            "Response format:\n"
+            "- Keep responses clean, short, and structured\n"
+            "- ALWAYS start with: Answer:\n"
+            "- Then bullet key numbers\n"
+            "- Then: Insight:\n"
+            "- Then: Next actions:\n"
+            "- If quoting reviews: max 12 words per quote, max 3 quotes\n"
+            "- Use bullets for key numbers\n"
+            "- Provide 1-2 sentence insights\n"
+            "- List actionable next steps\n"
+            "- For deep analysis, include 2-3 example review snippets\n\n"
+            "Privacy: Never reveal emails or personal info. Mask emails as a***@b.com if present.\n\n"
+            "Supported intents:\n"
+            "- Quick stats (total, positive/negative counts)\n"
+            "- Breakdowns by date range, product, rating\n"
+            "- Topics & pain points\n"
+            "- Business recommendations\n"
+            "- Export/CSV guidance\n"
+            "- Screenshot/report UI guidance\n"
+        )
+        
+        # Build context with real data
+        dr_label = request.date_range_label or (f"{used_range['start']} to {used_range['end']}" if used_range and isinstance(used_range, dict) else "selected range")
+        
+        user_context = (
+            f"Structured data (use ONLY this - never guess):\n"
+            f"- date_range: {dr_label}\n"
+            f"- total_reviews: {stats['total']}\n"
+            f"- positive_count: {stats['positive_count']}\n"
+            f"- negative_count: {stats['negative_count']}\n"
+            f"- neutral_count: {stats['neutral_count']}\n"
+            f"- positive_percentage: {stats['positive_pct']}\n"
+            f"- negative_percentage: {stats['negative_pct']}\n"
+            f"- neutral_percentage: {stats['neutral_pct']}\n"
+            f"- average_rating: {stats['avg_rating'] or 'N/A'}\n"
+            f"- top_negative_topics: {[(t[0], t[1]) for t in negative_topics[:5]]}\n"
+            f"- top_positive_topics: {[(t[0], t[1]) for t in positive_topics[:5]]}\n"
+            f"- evidence_quotes: {evidence_quotes}\n"
+            f"- sample_reviews_count: {len(filtered_reviews[:5])}\n"
+            f"- product_analytics: {len(request.product_analytics or [])} products\n\n"
+            f"User question: {q}\n\n"
+            f"IMPORTANT: If the user asks about something not in the data above, say 'I don't have that data yet' and explain how to get it."
+        )
+        
+        try:
+            messages = [{"role": "system", "content": system}]
+            for m in (request.history or [])[-10:]:
+                role = (m or {}).get("role")
+                content = (m or {}).get("content")
+                if role not in ("user", "assistant"):
+                    continue
+                if not isinstance(content, str) or not content.strip():
+                    continue
+                messages.append({"role": role, "content": content.strip()[:1200]})
+            messages.append({"role": "user", "content": user_context})
+            
+            text = await groq_chat_completion(
+                system_prompt=system,
+                user_prompt=user_context,
+                messages=messages,
+                model=DEFAULT_MODEL,
+                temperature=0.2,
+                max_tokens=500,
+                use_cache=True
+            )
+            return AiChatResponse(
+                answer=text.strip(),
+                model="assistant",
+                used_filters={"date_range": used_range, "product_id": request.product_id} if (used_range or request.product_id) else None
+            )
+        except Exception as llm_error:
+            # Fallback to deterministic answer
+            try:
+                return AiChatResponse(
+                    answer=format_response_template(
+                        key_numbers=[
+                            f"Total: {stats['total']}",
+                            f"Positive: {stats['positive_count']} ({stats['positive_pct']}%)",
+                            f"Negative: {stats['negative_count']} ({stats['negative_pct']}%)"
+                        ],
+                        insight="Ask about specific topics, issues, or recommendations.",
+                        next_actions=["Check top negative topics", "Review positive feedback"]
+                    ),
+                    model="assistant",
+                    used_filters={"date_range": used_range} if used_range else None
+                )
+            except Exception as fallback_error:
+                # Ultimate fallback
+                return AiChatResponse(
+                    answer=f"Total reviews: {stats.get('total', 0)}. Positive: {stats.get('positive_count', 0)}, Negative: {stats.get('negative_count', 0)}. Error: {str(llm_error)}",
+                    model="assistant"
+                )
+    except Exception as e:
+        # Catch any unexpected errors
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"AI Chat Error: {error_trace}")
+        
+        # Return a helpful error message
+        return AiChatResponse(
+            answer=f"I encountered an error processing your request: {str(e)}. Please try rephrasing your question or contact support if the issue persists.",
+            model="assistant"
+        )
 
 
 # ============ RUN SERVER ============

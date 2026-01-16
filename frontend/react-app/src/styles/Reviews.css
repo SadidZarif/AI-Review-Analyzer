@@ -1,0 +1,176 @@
+/* ============ REVIEWS PAGE STYLES ============ */
+/* Minimal styling - existing glass/theme এর সাথে match করার জন্য */
+
+.reviews-page {
+  padding: 1.5rem;
+}
+
+.reviews-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.reviews-title {
+  margin: 0;
+  color: #fff;
+  font-size: 1.8rem;
+}
+
+.reviews-subtitle {
+  margin: 0.25rem 0 0;
+  color: rgba(148, 163, 184, 1);
+}
+
+.reviews-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.reviews-date {
+  display: flex;
+  align-items: center;
+}
+
+.reviews-search {
+  width: 340px;
+  max-width: 50vw;
+  padding: 0.65rem 0.8rem;
+  border-radius: 10px;
+  /* বাংলা: new deep-black palette match */
+  border: 1px solid var(--panel-border);
+  background: rgba(17, 17, 17, 0.85);
+  color: #fff;
+}
+
+.reviews-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.reviews-filter {
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--panel-border);
+  background: rgba(17, 17, 17, 0.75);
+  color: var(--text-secondary);
+  font-weight: 900;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+}
+
+.reviews-filter:hover {
+  background: rgba(34, 34, 34, 0.85);
+  color: #fff;
+}
+
+.reviews-filter.active {
+  background: rgba(19, 91, 236, 0.18);
+  border-color: rgba(19, 91, 236, 0.35);
+  color: #dbeafe;
+  box-shadow: var(--glow);
+}
+
+.reviews-filter-divider {
+  width: 1px;
+  height: 28px;
+  background: rgba(255,255,255,0.08);
+  margin: 0 0.25rem;
+}
+
+.reviews-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: 10px;
+  /* বাংলা: example UI button tone (#111/#222) */
+  border: 1px solid var(--panel-border);
+  background: rgba(17, 17, 17, 0.85);
+  color: rgba(203, 213, 225, 1);
+  cursor: pointer;
+}
+
+.reviews-refresh:hover {
+  background: rgba(34, 34, 34, 0.9);
+  color: #fff;
+}
+
+.reviews-refresh:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.reviews-banner {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+.reviews-banner-error {
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.1);
+  color: rgba(254, 226, 226, 1);
+}
+
+.reviews-banner-loading {
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.1);
+  color: rgba(219, 234, 254, 1);
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.reviews-empty {
+  padding: 2rem;
+  border-radius: 16px;
+  /* বাংলা: empty state card background */
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  background: rgba(17, 17, 17, 0.5);
+  color: rgba(148, 163, 184, 1);
+}
+
+.reviews-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.reviews-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.reviews-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 0.25rem;
+}
+
+.reviews-product {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+  color: rgba(148, 163, 184, 1);
+  font-size: 0.9rem;
+}
+
+

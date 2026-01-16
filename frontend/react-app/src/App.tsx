@@ -6,56 +6,32 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 // Components
 import Sidebar from './components/Sidebar';
 
+// Context Provider - Global state management
+import { ReviewProvider } from './context/ReviewContext';
+
 // Pages import
 import Dashboard from './pages/Dashboard';
 import ReviewDetails from './pages/ReviewDetails';
 import Inventory from './pages/Inventory';
-import Settings from './pages/Settings';
+import { Navigate } from 'react-router-dom';
+import SettingsLayout from './pages/settings/SettingsLayout';
+import Account from './pages/settings/Account';
+import Integrations from './pages/settings/Integrations';
+import Notifications from './pages/settings/Notifications';
+import AIModels from './pages/settings/AIModels';
+import Billing from './pages/settings/Billing';
+import Reviews from './pages/Reviews';
+import Analysis from './pages/Analysis';
+import Campaigns from './pages/Campaigns';
+import DetailedReport from './pages/DetailedReport';
+import AIChatPage from './pages/AIChatPage';
+import ProductInsights from './pages/ProductInsights';
+import ProductFixIssues from './pages/ProductFixIssues';
+import AnalysisDetailed from './pages/AnalysisDetailed';
+import TopicClusters from './pages/TopicClusters';
 
 // Global styles
 import './index.css';
-
-
-// ============ PLACEHOLDER COMPONENTS ============
-// এগুলো পরে implement করা হবে
-
-function Analysis() {
-  return (
-    <div style={{
-      padding: '2rem',
-      color: '#fff',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '60vh',
-      textAlign: 'center'
-    }}>
-      <span className="material-symbols-outlined" style={{ fontSize: '4rem', marginBottom: '1rem', color: 'var(--primary)' }}>analytics</span>
-      <h1 style={{ marginBottom: '0.5rem' }}>Analysis</h1>
-      <p style={{ color: 'var(--text-secondary)' }}>Coming soon...</p>
-    </div>
-  );
-}
-
-function Campaigns() {
-  return (
-    <div style={{
-      padding: '2rem',
-      color: '#fff',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '60vh',
-      textAlign: 'center'
-    }}>
-      <span className="material-symbols-outlined" style={{ fontSize: '4rem', marginBottom: '1rem', color: 'var(--primary)' }}>campaign</span>
-      <h1 style={{ marginBottom: '0.5rem' }}>Campaigns</h1>
-      <p style={{ color: 'var(--text-secondary)' }}>Coming soon...</p>
-    </div>
-  );
-}
 
 
 // ============ MAIN APP COMPONENT ============
@@ -63,6 +39,8 @@ function Campaigns() {
 function App() {
   return (
     <Router>
+      {/* ReviewProvider - সব pages এ shared state access দেবে */}
+      <ReviewProvider>
       {/* App Container - Sidebar + Main Content */}
       <div className="app">
         {/* Decorative Background Glows */}
@@ -81,24 +59,42 @@ function App() {
             
             {/* Products/Inventory */}
             <Route path="/inventory" element={<Inventory />} />
+            <Route path="/product/:id/insights" element={<ProductInsights />} />
+            <Route path="/product/:id/fix-issues" element={<ProductFixIssues />} />
             
-            {/* All Reviews - ReviewDetails page render হবে */}
-            <Route path="/reviews" element={<ReviewDetails />} />
+            {/* All Reviews */}
+            <Route path="/reviews" element={<Reviews />} />
             
             {/* Analysis */}
             <Route path="/analysis" element={<Analysis />} />
+            <Route path="/analysis/detailed" element={<AnalysisDetailed />} />
+            <Route path="/analysis/clusters" element={<TopicClusters />} />
             
             {/* Campaigns */}
             <Route path="/campaigns" element={<Campaigns />} />
             
-            {/* Settings */}
-            <Route path="/settings" element={<Settings />} />
+            {/* Printable detailed report (Export Report) */}
+            <Route path="/reports/detailed" element={<DetailedReport />} />
+
+            {/* AI Deep Dive chat page (Dashboard -> View Deep Dive) */}
+            <Route path="/ai-chat" element={<AIChatPage />} />
+
+            {/* Settings (5 pages) */}
+            <Route path="/settings" element={<SettingsLayout />}>
+              <Route index element={<Navigate to="/settings/account" replace />} />
+              <Route path="account" element={<Account />} />
+              <Route path="integrations" element={<Integrations />} />
+              <Route path="notifications" element={<Notifications />} />
+              <Route path="ai-models" element={<AIModels />} />
+              <Route path="billing" element={<Billing />} />
+            </Route>
             
             {/* Review Details - Dynamic route */}
             <Route path="/review/:id" element={<ReviewDetails />} />
           </Routes>
         </main>
       </div>
+      </ReviewProvider>
     </Router>
   );
 }

@@ -24,7 +24,7 @@ pip install -r requirements.txt
 Create a `.env` file:
 
 ```bash
-JUDGE_ME_API_TOKEN=yXkkzQ7GwlRbGrLTfnMl-x23TDY
+JUDGE_ME_API_TOKEN=your_judge_me_api_token_here
 ```
 
 ### 3. Run Server
@@ -61,11 +61,9 @@ backend/
 
 The Judge.me API token is stored in `.env` file as `JUDGE_ME_API_TOKEN`.
 
-**Current Token:** `yXkkzQ7GwlRbGrLTfnMl-x23TDY`
-
 This token is automatically loaded when using Judge.me integration.
 
 ## Development
 
-See [SETUP.md](./SETUP.md) for detailed setup instructions.
+See API documentation at `/docs` for detailed endpoint information.
 

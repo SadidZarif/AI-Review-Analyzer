@@ -1,0 +1,81 @@
+# ============ ROOT .GITIGNORE ============
+# এই file এ যে files/folders আছে, সেগুলো git এ push হবে না
+
+# ============ ENVIRONMENT VARIABLES ============
+# NEVER commit sensitive API tokens!
+.env
+.env.local
+.env.*.local
+*.env
+
+# ============ BACKEND (Python) ============
+backend/__pycache__/
+backend/*.py[cod]
+backend/*$py.class
+backend/*.so
+backend/.Python
+backend/env/
+backend/venv/
+backend/ENV/
+backend/build/
+backend/dist/
+backend/*.egg-info/
+backend/.pytest_cache/
+
+# ============ FRONTEND (Node.js/React) ============
+frontend/react-app/node_modules/
+frontend/react-app/dist/
+frontend/react-app/build/
+frontend/react-app/.vite/
+frontend/react-app/.next/
+frontend/react-app/.cache/
+frontend/react-app/.parcel-cache/
+frontend/react-app/.turbo/
+frontend/react-app/*.log
+frontend/react-app/.DS_Store
+
+# ============ IDE & EDITOR FILES ============
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# ============ OS FILES ============
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ============ LOGS & TEMP FILES ============
+*.log
+*.tmp
+*.temp
+*.cache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ============ TESTING & COVERAGE ============
+coverage/
+.nyc_output/
+*.lcov
+.jest/
+
+# ============ MISC ============
+*.bak
+*.backup
+*.old
+*.orig
+

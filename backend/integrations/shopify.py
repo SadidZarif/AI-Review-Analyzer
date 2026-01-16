@@ -94,6 +94,8 @@ class ShopifyProduct:
     vendor: str
     product_type: str
     tags: list[str]
+    handle: str = ""
+    image_url: str = ""
     
     
 @dataclass  
@@ -232,7 +234,7 @@ class ShopifyClient:
     async def get_products(
         self, 
         limit: int = 250,
-        fields: str = "id,title,body_html,vendor,product_type,tags"
+        fields: str = "id,title,handle,body_html,vendor,product_type,tags,images"
     ) -> list[ShopifyProduct]:
         """
         Store এর products fetch করে।
@@ -253,13 +255,23 @@ class ShopifyClient:
         products = []
         
         for p in data.get("products", []):
+            # Product image - প্রথম image এর src নেব (যদি থাকে)
+            image_url = ""
+            images = p.get("images") or []
+            if isinstance(images, list) and len(images) > 0:
+                first_image = images[0] if isinstance(images[0], dict) else None
+                if first_image:
+                    image_url = first_image.get("src", "") or ""
+
             products.append(ShopifyProduct(
                 id=p.get("id"),
                 title=p.get("title", ""),
+                handle=p.get("handle", "") or "",
                 description=p.get("body_html", ""),
                 vendor=p.get("vendor", ""),
                 product_type=p.get("product_type", ""),
-                tags=p.get("tags", "").split(", ") if p.get("tags") else []
+                tags=p.get("tags", "").split(", ") if p.get("tags") else [],
+                image_url=image_url
             ))
         
         return products
@@ -336,13 +348,13 @@ class JudgeMeClient:
     Requirements:
     - Judge.me app installed on store
     - Judge.me API token (from app settings > API)
-    - Shop domain (without .myshopify.com)
+    - Shop domain (use the full Shopify domain, e.g. "mystore.myshopify.com")
     
     API Docs: https://judge.me/api/docs
     
     IMPORTANT:
     Judge.me API token query parameter হিসেবে pass হয়, Bearer token না।
-    Shop domain এ .myshopify.com থাকলে remove করতে হবে।
+    shop_domain সাধারণত full domain (".myshopify.com" সহ) চাইতে পারে—তাই আমরা domain থেকে এটা remove করি না।
     """
     
     def __init__(self, shop_domain: str, api_token: str):
@@ -360,26 +372,24 @@ class JudgeMeClient:
     
     def _normalize_shop_domain(self, domain: str) -> str:
         """
-        Shop domain normalize করে - Judge.me API এর জন্য .myshopify.com remove করতে হবে।
+        Shop domain normalize করে।
+        - https:// / http:// remove করবে
+        - trailing slash remove করবে
+        - ".myshopify.com" remove করবে না (Judge.me API অনেক ক্ষেত্রে full domain expect করে)
         
         Args:
             domain: Raw shop domain
             
         Returns:
-            Normalized domain (e.g., "mystore")
+            Normalized domain (e.g., "mystore.myshopify.com")
         """
         domain = domain.strip()
         # https:// বা http:// remove
         domain = domain.replace("https://", "").replace("http://", "")
         domain = domain.rstrip("/")
-        
-        # .myshopify.com remove করছি
-        if domain.endswith(".myshopify.com"):
-            domain = domain.replace(".myshopify.com", "")
-        elif ".myshopify.com" in domain:
-            # যদি middle এ থাকে
-            domain = domain.split(".myshopify.com")[0]
-        
+        # NOTE: আগে এখানে .myshopify.com strip করা হতো।
+        # কিন্তু Judge.me dashboard এ shop domain full দেখায় (e.g. crazy-dev-2.myshopify.com),
+        # এবং অনেক সময় API এই full domain-ই expect করে। Strip করলে API empty reviews দিতে পারে।
         return domain
     
     async def get_reviews(
@@ -490,6 +500,7 @@ class JudgeMeClient:
                     if isinstance(review, dict):
                         # Judge.me API response structure parse করছি
                         review_data = {
+                            "id": review.get("id"),
                             "body": "",
                             "reviewer_name": "",
                             "created_at": "",
@@ -515,10 +526,25 @@ class JudgeMeClient:
                                 review_data["body"] = body
                                 
                                 # Reviewer name
-                                review_data["reviewer_name"] = review.get("name", review.get("reviewer_name", ""))
-                                if not review_data["reviewer_name"] and "review" in review:
+                                # Judge.me API format: reviewer.name (nested)
+                                reviewer_name = ""
+                                reviewer_obj = review.get("reviewer")
+                                if isinstance(reviewer_obj, dict):
+                                    reviewer_name = reviewer_obj.get("name") or ""
+
+                                # Fallbacks (different response shapes)
+                                if not reviewer_name:
+                                    reviewer_name = review.get("reviewer_name") or review.get("name") or ""
+                                if not reviewer_name and "review" in review:
                                     review_obj = review.get("review", {})
-                                    review_data["reviewer_name"] = review_obj.get("name", review_obj.get("reviewer_name", ""))
+                                    if isinstance(review_obj, dict):
+                                        nested_reviewer = review_obj.get("reviewer")
+                                        if isinstance(nested_reviewer, dict) and nested_reviewer.get("name"):
+                                            reviewer_name = nested_reviewer.get("name") or ""
+                                        else:
+                                            reviewer_name = review_obj.get("reviewer_name") or review_obj.get("name") or ""
+
+                                review_data["reviewer_name"] = reviewer_name.strip()
                                 
                                 # Review date
                                 review_data["created_at"] = review.get("created_at", review.get("date", ""))
@@ -527,8 +553,13 @@ class JudgeMeClient:
                                     review_data["created_at"] = review_obj.get("created_at", review_obj.get("date", ""))
                                 
                                 # Product info
-                                review_data["product_title"] = review.get("product_title", review.get("product_name", ""))
-                                review_data["product_id"] = review.get("product_id")
+                                review_data["product_title"] = review.get("product_title") or review.get("product_name") or ""
+
+                                # Judge.me sometimes uses product_external_id instead of product_id
+                                product_id = review.get("product_id")
+                                if not product_id:
+                                    product_id = review.get("product_external_id")
+                                review_data["product_id"] = product_id
                                 
                                 # Rating
                                 review_data["rating"] = review.get("rating", review.get("stars"))

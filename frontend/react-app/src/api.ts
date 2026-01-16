@@ -46,7 +46,8 @@ export interface ReviewResult {
   text: string;
   
   // Predicted sentiment: "positive" বা "negative"
-  sentiment: "positive" | "negative";
+  // NOTE: UI তে neutral ও ব্যবহার হয় (rating=3 বা unknown হলে)
+  sentiment: "positive" | "negative" | "neutral";
   
   // Model এর confidence score (0.0 থেকে 1.0)
   confidence: number;
@@ -97,6 +98,115 @@ export interface AnalysisResponse {
   
   // Sample individual review results
   sample_reviews: ReviewResult[];
+}
+
+// ============ GROQ AI (LLM) TYPES ============
+// Backend এর /ai/* endpoints এর জন্য
+
+export interface GroqReplyRequest {
+  review_text: string;
+  tone?: "empathetic" | "formal" | "short";
+  language?: "en" | "bn";
+  customer_name?: string;
+  product_name?: string;
+  store_name?: string;
+  custom_instruction?: string;
+}
+
+export interface GroqReplyResponse {
+  reply_text: string;
+  model: string;
+}
+
+export interface GroqSummaryRequest {
+  title?: string;
+  date_range?: string;
+  total_reviews: number;
+  positive_percentage: number;
+  negative_percentage: number;
+  top_positive_topics: string[];
+  top_negative_topics: string[];
+  sample_reviews: string[];
+}
+
+export interface GroqSummaryResponse {
+  summary: string;
+  key_actions: string[];
+  model: string;
+}
+
+export interface GroqCampaignIdeaRequest {
+  positive_topic?: string | null;
+  negative_topic?: string | null;
+  store_name?: string | null;
+  total_reviews: number;
+  positive_percentage: number;
+  negative_percentage: number;
+}
+
+export interface GroqCampaignIdeaResponse {
+  title: string;
+  description: string;
+  model: string;
+}
+
+// ============ AI CHAT (Deep Dive) ============
+export interface AiChatRequest {
+  question: string;
+  date_range_label?: string;
+  date_range?: { start: string; end: string };
+  analysis?: AnalysisResponse;
+  reviews?: Array<Record<string, any>>;
+  shopify?: ShopifyRequest;
+  top_positive_topics?: string[];
+  top_negative_topics?: string[];
+  sample_reviews?: string[];
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
+  product_analytics?: Array<Record<string, any>>;
+  product_id?: string;
+}
+
+export interface AiChatResponse {
+  answer: string;
+  model: string;
+  suggested_actions?: string[];
+  used_filters?: Record<string, any>;
+}
+
+// ============ SHOPIFY / JUDGE.ME DATA TYPES ============
+// Products + raw reviews + per-product analytics এর জন্য
+
+export interface ShopifyProduct {
+  id: number;
+  title: string;
+  handle?: string | null;
+  vendor?: string | null;
+  product_type?: string | null;
+  tags: string[];
+  image_url?: string | null;
+}
+
+export interface JudgeMeReview {
+  id: number;
+  body: string;
+  reviewer_name?: string | null;
+  created_at?: string | null;
+  product_title?: string | null;
+  product_id?: number | null;
+  rating?: number | null;
+}
+
+export interface ProductAnalytics {
+  product_id?: number | null;
+  product_title: string;
+  review_count: number;
+  average_rating?: number | null;
+  positive_percentage: number;
+  negative_percentage: number;
+  positive_count: number;
+  negative_count: number;
+  top_positive_topics: string[];
+  top_negative_topics: string[];
 }
 
 // HealthResponse: Health check endpoint এর response
@@ -167,6 +277,56 @@ export async function analyzeReviews(
   return response.json() as Promise<AnalysisResponse>;
 }
 
+// ============ GROQ AI API CALLS ============
+
+export async function generateGroqReply(request: GroqReplyRequest): Promise<GroqReplyResponse> {
+  const response = await fetch(`${API_BASE_URL}/ai/reply`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const msg = errorData.detail || `AI reply failed: ${response.status}`;
+    throw new Error(msg);
+  }
+
+  return response.json() as Promise<GroqReplyResponse>;
+}
+
+export async function generateGroqSummary(request: GroqSummaryRequest): Promise<GroqSummaryResponse> {
+  const response = await fetch(`${API_BASE_URL}/ai/summary`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const msg = errorData.detail || `AI summary failed: ${response.status}`;
+    throw new Error(msg);
+  }
+
+  return response.json() as Promise<GroqSummaryResponse>;
+}
+
+export async function generateGroqCampaignIdea(request: GroqCampaignIdeaRequest): Promise<GroqCampaignIdeaResponse> {
+  const response = await fetch(`${API_BASE_URL}/ai/campaign-idea`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const msg = errorData.detail || `AI campaign idea failed: ${response.status}`;
+    throw new Error(msg);
+  }
+
+  return response.json() as Promise<GroqCampaignIdeaResponse>;
+}
+
 
 // ============ UTILITY FUNCTIONS ============
 
@@ -184,14 +344,17 @@ export function formatConfidence(value: number): string {
 
 // getSentimentColor: Sentiment অনুযায়ী color return করে
 // UI তে positive/negative আলাদা color দেখাতে ব্যবহার হবে
-export function getSentimentColor(sentiment: "positive" | "negative"): string {
-  return sentiment === "positive" ? "#22c55e" : "#ef4444";
-  // Green for positive, Red for negative
+export function getSentimentColor(sentiment: "positive" | "negative" | "neutral"): string {
+  if (sentiment === "positive") return "#22c55e"; // Green
+  if (sentiment === "negative") return "#ef4444"; // Red
+  return "#eab308"; // Yellow for neutral
 }
 
 // getSentimentEmoji: Sentiment অনুযায়ী emoji return করে
-export function getSentimentEmoji(sentiment: "positive" | "negative"): string {
-  return sentiment === "positive" ? "😊" : "😞";
+export function getSentimentEmoji(sentiment: "positive" | "negative" | "neutral"): string {
+  if (sentiment === "positive") return "😊";
+  if (sentiment === "negative") return "😞";
+  return "😐";
 }
 
 // ============ SHOPIFY INTEGRATION ============
@@ -224,4 +387,81 @@ export async function analyzeShopifyReviews(
   }
   
   return response.json() as Promise<AnalysisResponse>;
+}
+
+// ============ SHOPIFY DATA FETCH ENDPOINTS ============
+// Dashboard/Products/Reviews page এ real data দেখানোর জন্য
+
+// Shopify products list fetch করে
+export async function fetchShopifyProducts(
+  request: ShopifyRequest
+): Promise<ShopifyProduct[]> {
+  const response = await fetch(`${API_BASE_URL}/shopify/products`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage = errorData.detail || `Failed to fetch products: ${response.status}`;
+    throw new Error(errorMessage);
+  }
+
+  return response.json() as Promise<ShopifyProduct[]>;
+}
+
+// Judge.me raw reviews list fetch করে (metadata সহ)
+export async function fetchShopifyReviews(
+  request: ShopifyRequest
+): Promise<JudgeMeReview[]> {
+  const response = await fetch(`${API_BASE_URL}/shopify/reviews`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage = errorData.detail || `Failed to fetch reviews: ${response.status}`;
+    throw new Error(errorMessage);
+  }
+
+  return response.json() as Promise<JudgeMeReview[]>;
+}
+
+// Per-product analytics fetch করে (sentiment breakdown + rating + topics)
+export async function fetchShopifyProductAnalytics(
+  request: ShopifyRequest
+): Promise<ProductAnalytics[]> {
+  const response = await fetch(`${API_BASE_URL}/shopify/products/analytics`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage = errorData.detail || `Failed to fetch product analytics: ${response.status}`;
+    throw new Error(errorMessage);
+  }
+
+  return response.json() as Promise<ProductAnalytics[]>;
+}
+
+// Deep dive chat: answer questions using current range stats + topics
+export async function aiChat(request: AiChatRequest): Promise<AiChatResponse> {
+  const response = await fetch(`${API_BASE_URL}/ai/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage = errorData.detail || `Failed to chat: ${response.status}`;
+    throw new Error(errorMessage);
+  }
+
+  return response.json() as Promise<AiChatResponse>;
 }

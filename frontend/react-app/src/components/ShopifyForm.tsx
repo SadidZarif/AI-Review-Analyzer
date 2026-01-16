@@ -2,8 +2,11 @@
 // Shopify store থেকে reviews fetch করার form
 // Judge.me API token দিয়ে reviews fetch করবে
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { analyzeShopifyReviews, type AnalysisResponse, type ShopifyRequest } from '../api';
+
+// Context - store config এর জন্য
+import { useReviews } from '../context/ReviewContext';
 
 interface ShopifyFormProps {
   onAnalysisComplete: (results: AnalysisResponse) => void;
@@ -11,11 +14,24 @@ interface ShopifyFormProps {
 }
 
 function ShopifyForm({ onAnalysisComplete, onLoadingChange }: ShopifyFormProps) {
-  const [storeDomain, setStoreDomain] = useState<string>('');
-  const [accessToken, setAccessToken] = useState<string>('');
+  // ============ CONTEXT ============
+  const { storeConfig, setStoreConfig } = useReviews();
+  
+  // ============ LOCAL STATE ============
+  // Context থেকে initial values নিচ্ছি (যদি আগে save করা থাকে)
+  const [storeDomain, setStoreDomain] = useState<string>(storeConfig?.store_domain || '');
+  const [accessToken, setAccessToken] = useState<string>(storeConfig?.access_token || '');
   const [limit, setLimit] = useState<number>(500);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Context change হলে form update করব
+  useEffect(() => {
+    if (storeConfig) {
+      setStoreDomain(storeConfig.store_domain);
+      setAccessToken(storeConfig.access_token);
+    }
+  }, [storeConfig]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,6 +58,13 @@ function ShopifyForm({ onAnalysisComplete, onLoadingChange }: ShopifyFormProps) 
         review_app: "judge_me",  // Judge.me use করছি
         // review_app_token optional - .env file থেকে load হবে
       };
+      
+      // Store config save করছি context এ (localStorage এও save হবে)
+      setStoreConfig({
+        store_domain: storeDomain.trim(),
+        access_token: accessToken.trim(),
+        review_app: 'judge_me'
+      });
 
       const result = await analyzeShopifyReviews(request);
       onAnalysisComplete(result);

@@ -5,6 +5,11 @@ import { Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import '../styles/Sidebar.css';
 
+import LogoIcon from '../assets/Logo.png';
+import LogoWithName from '../assets/Logo_with_name.png';
+import { useReviews } from '../context/ReviewContext';
+import { generateInitials } from '../utils/helpers';
+
 // Navigation item এর structure
 interface NavItem {
   label: string;      // Display text
@@ -25,6 +30,7 @@ const navItems: NavItem[] = [
 function Sidebar() {
   const location = useLocation();
   const [isExpanded, setIsExpanded] = useState(true);
+  const { storeConfig } = useReviews();
   
   // Check করে current path active কিনা
   const isActive = (path: string) => location.pathname === path;
@@ -34,11 +40,14 @@ function Sidebar() {
       <div className="sidebar-content">
         {/* Logo Section */}
         <div className="sidebar-logo">
-          <div className="logo-icon">
-            <span className="material-symbols-outlined">view_in_ar</span>
-          </div>
-          {isExpanded && (
-            <h1 className="logo-text">ReviewAI</h1>
+          {isExpanded ? (
+            <div className="logo-with-name">
+              <img className="logo-name-img" src={LogoWithName} alt="RevuMax" />
+            </div>
+          ) : (
+            <div className="logo-icon" aria-hidden="true">
+              <img className="logo-img" src={LogoIcon} alt="RevuMax" />
+            </div>
           )}
         </div>
         
@@ -85,11 +94,11 @@ function Sidebar() {
         {isExpanded && (
           <div className="user-profile">
             <div className="user-avatar">
-              ES
+              {generateInitials(storeConfig?.store_domain || 'Store')}
             </div>
             <div className="user-info">
-              <p className="user-name">ElectroStore</p>
-              <p className="user-role">Admin</p>
+              <p className="user-name">{storeConfig?.store_domain || 'No store connected'}</p>
+              <p className="user-role">{storeConfig ? 'Connected' : 'Not connected'}</p>
             </div>
           </div>
         )}

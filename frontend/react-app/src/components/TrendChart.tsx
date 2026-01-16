@@ -2,16 +2,17 @@
 // SVG-based sentiment trend chart - area chart with gradient fill
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { 
-  generateCustomDateRangeData,
-  type TrendDataPoint 
-} from '../utils/mockData';
+import type { TrendDataPoint } from '../types/trend';
 
 interface TrendChartProps {
   dateRange?: { startDate: Date | null; endDate: Date | null };
+  // Real data from backend/cached reviews (Dashboard will pass this)
+  data?: TrendDataPoint[];
+  // Mock comparison line (default false, কারণ real chart এ confuse করে)
+  showComparison?: boolean;
 }
 
-function TrendChart({ dateRange }: TrendChartProps = {}) {
+function TrendChart({ dateRange, data: providedData, showComparison = false }: TrendChartProps = {}) {
   // State management
   const [data, setData] = useState<TrendDataPoint[]>([]);
   const [hoveredPoint, setHoveredPoint] = useState<TrendDataPoint | null>(null);
@@ -21,20 +22,28 @@ function TrendChart({ dateRange }: TrendChartProps = {}) {
   
   // শুধুমাত্র dateRange change হলে নতুন data load করছি
   useEffect(() => {
-    // Custom date range থাকলে data generate করছি
-    if (dateRange?.startDate && dateRange?.endDate) {
-      setData(generateCustomDateRangeData(dateRange.startDate, dateRange.endDate));
-    } else {
-      // Date range না থাকলে empty array
-      setData([]);
+    // Real data provided হলে সেটাই use করব
+    if (providedData && providedData.length > 0) {
+      // Edge case: single point হলে duplicate করে 2 points বানাচ্ছি
+      if (providedData.length === 1) {
+        setData([providedData[0], providedData[0]]);
+      } else {
+        setData(providedData);
+      }
+      return;
     }
-  }, [dateRange]);
+
+    // Provided data না থাকলে (fallback) - dateRange থাকলেও empty দেখাব
+    // কারণ mock trend এখন UI expectations ভাঙে
+    setData([]);
+  }, [dateRange, providedData]);
   
   // Dashed comparison line এর জন্য random offsets
   // useMemo MUST be called before any conditional returns (React hooks rule)
   const compareOffsets = useMemo(() => {
+    if (!showComparison) return [];
     return data.map(() => 5 + Math.random() * 10);
-  }, [data]);
+  }, [data, showComparison]);
   
   // Data না থাকলে empty state message show করছি
   if (data.length === 0) {
@@ -92,15 +101,13 @@ function TrendChart({ dateRange }: TrendChartProps = {}) {
   // Area path (filled region)
   const areaPathD = `${pathD} L ${points[points.length - 1].x} ${height - padding.bottom} L ${padding.left} ${height - padding.bottom} Z`;
   
-  // Dashed comparison line (mock previous period)
-  // আগের period এর data simulate করছি - 5-15 points কম score
-  const comparePathD = points.map((p, i) => {
-    // Score 5-15 points কম ধরে নিচ্ছি আগের period এর জন্য
-    const prevPeriodScore = Math.max(0, data[i].sentimentScore - compareOffsets[i]);
+  // Dashed comparison line (optional)
+  const comparePathD = showComparison ? points.map((p, i) => {
+    const prevPeriodScore = Math.max(0, data[i].sentimentScore - (compareOffsets[i] || 0));
     const normalizedPrevScore = prevPeriodScore / 100;
     const compareY = padding.top + chartHeight - (normalizedPrevScore * chartHeight);
     return `${i === 0 ? 'M' : 'L'} ${p.x} ${compareY}`;
-  }).join(' ');
+  }).join(' ') : '';
   
   // Mouse move handler - tooltip position update করছি
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
@@ -203,13 +210,15 @@ function TrendChart({ dateRange }: TrendChartProps = {}) {
           />
           
           {/* Comparison Line (dashed) */}
-          <path
-            d={comparePathD}
-            fill="none"
-            stroke="#64748b"
-            strokeWidth="2"
-            strokeDasharray="6,6"
-          />
+          {showComparison && (
+            <path
+              d={comparePathD}
+              fill="none"
+              stroke="#64748b"
+              strokeWidth="2"
+              strokeDasharray="6,6"
+            />
+          )}
           
           {/* Hover Point Indicator */}
           {hoveredPoint && (

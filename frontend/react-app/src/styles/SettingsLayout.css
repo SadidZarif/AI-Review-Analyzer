@@ -1,0 +1,185 @@
+/* ============ SETTINGS LAYOUT (NEW) ============ */
+/* Tailwind ছাড়াই provided UI এর layout vibe */
+
+.settings2-page {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.settings2-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  height: 100%;
+}
+
+.settings2-sidebar-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  height: 100%;
+  padding: 1rem;
+}
+
+.settings2-brand {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.5rem 0.25rem;
+}
+
+.settings2-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings2-logo-icon {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  display: block;
+}
+
+.settings2-logo-name {
+  height: 18px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+  margin-top: 1px;
+}
+
+.settings2-brand-text h1 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.settings2-brand-text p {
+  margin: 0.2rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.settings2-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.settings2-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 14px;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.settings2-link:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.settings2-link .label {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.settings2-link.active {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+  color: #fff;
+}
+
+.settings2-link.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--primary);
+  border-radius: 0 9999px 9999px 0;
+}
+
+.settings2-link.active .material-symbols-outlined {
+  color: var(--primary);
+}
+
+.settings2-credits {
+  margin-top: auto;
+  padding: 1rem;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.8));
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+}
+
+.credits-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--text-secondary);
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.credits-head .value {
+  color: #fff;
+}
+
+.credits-bar {
+  margin-top: 0.6rem;
+  height: 8px;
+  width: 100%;
+  border-radius: 9999px;
+  background: rgba(51, 65, 85, 1);
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.credits-fill {
+  height: 100%;
+  background: var(--primary);
+  box-shadow: var(--glow);
+}
+
+.credits-sub {
+  margin-top: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.settings2-main {
+  flex: 1;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1rem 1.5rem;
+}
+
+/* Responsive: small width এ label hide */
+@media (max-width: 1024px) {
+  .settings2-sidebar { width: 80px; }
+  .settings2-brand-text { display: none; }
+  .settings2-link .label { display: none; }
+  .settings2-credits { display: none; }
+  .settings2-link { justify-content: center; }
+}
+
+

@@ -67,8 +67,9 @@
 .stat-card {
   flex: 1;
   min-width: 180px;
-  background: #1e2430;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  /* বাংলা: deep-black palette match */
+  background: rgba(17, 17, 17, 0.7);
+  border: 1px solid var(--panel-border);
   padding: 1.25rem;
   border-radius: 1.25rem;
   position: relative;
@@ -186,9 +187,10 @@
   padding: 0.75rem;
   border-radius: 1.25rem;
   margin-bottom: 2rem;
-  background: rgba(30, 36, 48, 0.7);
+  /* বাংলা: filters container tone */
+  background: rgba(15, 15, 15, 0.6);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--panel-border);
   box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.3);
 }
 
@@ -206,7 +208,8 @@
   gap: 0.75rem;
   flex: 1;
   max-width: 600px;
-  background: rgba(40, 46, 57, 0.5);
+  /* বাংলা: input wrapper tone */
+  background: rgba(17, 17, 17, 0.6);
   border-radius: 1.25rem;
   padding: 0 1rem;
   border: 1px solid transparent;
@@ -215,7 +218,7 @@
 
 .search-wrapper:focus-within {
   border-color: rgba(19, 91, 236, 0.5);
-  background: #282e39;
+  background: rgba(34, 34, 34, 0.85);
 }
 
 .search-icon {
@@ -261,7 +264,8 @@
   font-size: 0.875rem;
   font-weight: 500;
   border: 1px solid rgba(255, 255, 255, 0.05);
-  background: #282e39;
+  /* বাংলা: deep-black palette match */
+  background: rgba(17, 17, 17, 0.75);
   color: #cbd5e1;
   cursor: pointer;
   transition: all 0.2s;
@@ -360,7 +364,8 @@
 
 /* ============ PRODUCT CARD ============ */
 .product-card {
-  background: #1e2430;
+  /* বাংলা: cards surface match */
+  background: rgba(17, 17, 17, 0.7);
   border-radius: 1.25rem;
   padding: 1.5rem;
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -370,6 +375,15 @@
   position: relative;
   transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.4s ease, border-color 0.3s;
   transform-style: preserve-3d;
+}
+
+.product-card.clickable {
+  cursor: pointer;
+}
+
+.product-actions {
+  position: relative;
+  z-index: 5;
 }
 
 .card-3d {
@@ -386,12 +400,12 @@
   border-color: rgba(239, 68, 68, 0.3);
 }
 
-.product-card.unlinked {
+.product-card.no-reviews {
   border-style: dashed;
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-.product-card.unlinked:hover {
+.product-card.no-reviews:hover {
   border-color: rgba(19, 91, 236, 0.5);
 }
 
@@ -463,8 +477,8 @@
   background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
 }
 
-/* Unlinked Overlay */
-.unlinked-overlay {
+/* No Reviews Overlay */
+.no-reviews-overlay {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.4);
@@ -474,13 +488,13 @@
   z-index: 1;
 }
 
-.unlinked-overlay .material-symbols-outlined {
+.no-reviews-overlay .material-symbols-outlined {
   color: rgba(255, 255, 255, 0.5);
   font-size: 1.5rem;
   transition: color 0.3s;
 }
 
-.product-card:hover .unlinked-overlay .material-symbols-outlined {
+.product-card:hover .no-reviews-overlay .material-symbols-outlined {
   color: #fff;
 }
 
@@ -495,7 +509,8 @@
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  background: #282e39;
+  /* বাংলা: input/card surface match */
+  background: rgba(17, 17, 17, 0.75);
   padding: 0.25rem 0.5rem;
   border-radius: 0.875rem;
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -514,7 +529,7 @@
   font-weight: 700;
 }
 
-.rating-value.unlinked span {
+.rating-value.no-reviews span {
   color: #64748b;
 }
 
@@ -524,10 +539,31 @@
   margin-top: 0.25rem;
 }
 
-.rating-status.excellent { color: #10b981; }
-.rating-status.good { color: #10b981; }
+.rating-status.excellent { color: #22c55e; }
+.rating-status.good { color: #60a5fa; }
+.rating-status.issues { color: #f87171; }
 .rating-status.critical { color: #ef4444; }
-.rating-status.unlinked { color: #64748b; }
+.rating-status.no_reviews { color: #64748b; }
+
+/* Top Rated label */
+.top-rated {
+  margin-top: 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 9999px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.top-rated .material-symbols-outlined {
+  font-size: 0.9rem;
+  font-variation-settings: 'FILL' 1;
+}
 
 /* Product Info */
 .product-info {
@@ -594,7 +630,8 @@
 .sentiment-bar {
   height: 8px;
   width: 100%;
-  background: #282e39;
+  /* বাংলা: surface match */
+  background: rgba(17, 17, 17, 0.75);
   border-radius: 9999px;
   overflow: hidden;
   display: flex;
@@ -679,7 +716,8 @@
 .btn-secondary {
   flex: 1;
   height: 2.5rem;
-  background: #282e39;
+  /* বাংলা: surface match */
+  background: rgba(17, 17, 17, 0.75);
   color: #fff;
   font-size: 0.875rem;
   font-weight: 500;

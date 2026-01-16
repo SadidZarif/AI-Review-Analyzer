@@ -14,6 +14,7 @@ interface MetricCardProps {
   progressValue?: number;     // Progress bar percentage (0-100)
   progressType?: 'positive' | 'negative' | 'primary';  // Progress bar color
   miniChart?: React.ReactNode;  // Optional mini chart element
+  onClick?: () => void;
 }
 
 function MetricCard({
@@ -28,25 +29,23 @@ function MetricCard({
   changeType = 'neutral',
   progressValue,
   progressType = 'primary',
-  miniChart
+  miniChart,
+  onClick
 }: MetricCardProps) {
   
-  // Change badge এর color classes
-  const changeColors = {
-    positive: 'bg-green-500/10 text-green-400 border-green-500/20',
-    negative: 'bg-red-500/10 text-red-400 border-red-500/20',
-    neutral: 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-  };
+  // বাংলা: আগে Tailwind-style class string ছিল (bg-green-500/10 etc) — আমাদের project এ Tailwind নেই।
+  // তাই এখন আমরা deterministic CSS classes ব্যবহার করছি।
   
-  // Progress bar এর gradient classes
-  const progressGradients = {
-    positive: 'from-green-400 to-green-600',
-    negative: 'from-red-400 to-red-600',
-    primary: 'from-blue-500 to-blue-600'
-  };
-  
+  const clickable = typeof onClick === 'function';
+  const Container: any = clickable ? 'button' : 'div';
+
   return (
-    <div className="metric-card glass-panel">
+    <Container
+      className={`metric-card glass-panel${clickable ? ' metric-card-clickable' : ''}`}
+      onClick={onClick}
+      type={clickable ? 'button' : undefined}
+      style={clickable ? { textAlign: 'left' } : undefined}
+    >
       {/* Icon - Top right corner - Material Symbols icon */}
       <div className="metric-icon" style={{ background: iconColor }}>
         <span className="material-symbols-outlined" style={{ color: iconTextColor }}>{icon}</span>
@@ -65,7 +64,7 @@ function MetricCard({
         {/* Change Indicator */}
         {changeValue && (
           <div className="metric-change">
-            <span className={`change-badge ${changeColors[changeType]}`}>
+            <span className={`change-badge ${changeType}`}>
               {changeValue}
             </span>
             {changeLabel && (
@@ -79,7 +78,7 @@ function MetricCard({
           <div className="metric-progress-wrapper">
             <div className="metric-progress-track">
               <div 
-                className={`metric-progress-fill bg-gradient-to-r ${progressGradients[progressType]}`}
+                className={`metric-progress-fill ${progressType}`}
                 style={{ width: `${progressValue}%` }}
               />
             </div>
@@ -93,7 +92,7 @@ function MetricCard({
           </div>
         )}
       </div>
-    </div>
+    </Container>
   );
 }
 

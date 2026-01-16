@@ -157,3 +157,149 @@ class AnalysisResponse(BaseModel):
     # Frontend এ উদাহরণ হিসেবে দেখাব
     # সব review না, শুধু কয়েকটা representative example
     sample_reviews: List[ReviewResult]
+
+
+# ============ SHOPIFY/JUDGE.ME EXTRA RESPONSE SCHEMAS ============
+# Frontend এর Products/Reviews pages এ real data দেখানোর জন্য
+
+class ShopifyProductOut(BaseModel):
+    """
+    Shopify product basic info (Products page এ দেখানোর জন্য)
+    """
+    id: int
+    title: str
+    handle: Optional[str] = None
+    vendor: Optional[str] = None
+    product_type: Optional[str] = None
+    tags: List[str] = []
+    image_url: Optional[str] = None
+
+
+class JudgeMeReviewOut(BaseModel):
+    """
+    Judge.me review metadata সহ raw review (Reviews page এ list করার জন্য)
+    """
+    id: int
+    body: str
+    reviewer_name: Optional[str] = None
+    created_at: Optional[str] = None
+    product_title: Optional[str] = None
+    product_id: Optional[int] = None
+    rating: Optional[int] = None
+
+
+class ProductAnalyticsOut(BaseModel):
+    """
+    Per-product aggregated analytics (Products page এ sentiment bar + rating দেখানোর জন্য)
+    """
+    product_id: Optional[int] = None
+    product_title: str
+    review_count: int
+    average_rating: Optional[float] = None
+    positive_percentage: float
+    negative_percentage: float
+    positive_count: int
+    negative_count: int
+    # Small tag set (top topics) - UI badges এ দেখানোর জন্য
+    top_positive_topics: List[str] = []
+    top_negative_topics: List[str] = []
+
+
+# ============ GROQ AI (LLM) SCHEMAS ============
+# Frontend থেকে আসা request/response structure
+# NOTE: Bengali comments রাখা হলো
+
+class GroqReplyRequest(BaseModel):
+    """
+    একটি review এর জন্য AI reply generate করার request
+    """
+    review_text: str
+    tone: Optional[str] = "empathetic"   # "empathetic" | "formal" | "short"
+    language: Optional[str] = "en"       # "en" | "bn" (future)
+    customer_name: Optional[str] = None
+    product_name: Optional[str] = None
+    store_name: Optional[str] = None
+    # বাংলা: user এর custom instruction (preferred style/brand voice/কি mention করবে)
+    custom_instruction: Optional[str] = None
+
+
+class GroqReplyResponse(BaseModel):
+    """
+    Groq থেকে generated reply
+    """
+    reply_text: str
+    model: str
+
+
+class GroqSummaryRequest(BaseModel):
+    """
+    Dashboard/Analysis/Campaigns এর জন্য executive summary / insight generate
+    (সব reviews পাঠানো না দিয়ে short context পাঠাই)
+    """
+    title: Optional[str] = None
+    date_range: Optional[str] = None
+    total_reviews: int
+    positive_percentage: float
+    negative_percentage: float
+    top_positive_topics: List[str] = []
+    top_negative_topics: List[str] = []
+    sample_reviews: List[str] = []   # max কয়েকটা short review body
+
+
+class GroqSummaryResponse(BaseModel):
+    summary: str
+    key_actions: List[str] = []
+    model: str
+
+
+class GroqCampaignIdeaRequest(BaseModel):
+    """
+    Campaigns page এর AI Opportunity / Suggested campaign text generate
+    """
+    positive_topic: Optional[str] = None
+    negative_topic: Optional[str] = None
+    store_name: Optional[str] = None
+    total_reviews: int
+    positive_percentage: float
+    negative_percentage: float
+
+
+class GroqCampaignIdeaResponse(BaseModel):
+    title: str
+    description: str
+    model: str
+
+
+# ============ AI CHAT (DEEP DIVE) SCHEMAS ============
+
+class AiChatRequest(BaseModel):
+    """
+    Dashboard "View Deep Dive" chatbox এর জন্য request।
+    Frontend selected date range এর context পাঠায়।
+    """
+    question: str
+    date_range_label: Optional[str] = None
+    # Date range for filtering (if provided)
+    date_range: Optional[dict] = None  # {start: "YYYY-MM-DD", end: "YYYY-MM-DD"}
+    # AnalysisResponse shape (subset) - frontend computed metrics
+    analysis: Optional[dict] = None
+    # Raw reviews data for filtering and analysis
+    reviews: Optional[List[dict]] = None  # List of review objects with id, body, rating, created_at, etc.
+    # Optional: let backend fetch more reviews directly (avoids frontend cache/limit)
+    shopify: Optional[ShopifyRequest] = None
+    top_positive_topics: List[str] = []
+    top_negative_topics: List[str] = []
+    sample_reviews: List[str] = []
+    # Optional chat history for conversational continuity
+    history: List[dict] = []
+    # Optional product analytics context (from store)
+    product_analytics: Optional[List[dict]] = None
+    # Optional product_id for product-specific queries
+    product_id: Optional[str] = None
+
+
+class AiChatResponse(BaseModel):
+    answer: str
+    model: str
+    suggested_actions: Optional[List[str]] = None
+    used_filters: Optional[dict] = None  # {date_range: {...}, product_id: ...}

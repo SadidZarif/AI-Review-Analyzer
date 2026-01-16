@@ -12,6 +12,9 @@ numpy>=1.20.0
 # HTTP Client (Shopify API calls)
 httpx>=0.25.0
 
+# Better date parsing for chat date-range queries
+python-dateutil>=2.9.0
+
 # Environment variables management
 python-dotenv>=1.0.0
 

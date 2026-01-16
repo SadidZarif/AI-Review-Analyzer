@@ -1,8 +1,12 @@
 // ============ INVENTORY/PRODUCTS PAGE ============
 // Product listing page - সব products এর overview, sentiment bars, filters সহ
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+// Context - global state থেকে results নেব
+import { useReviews } from '../context/ReviewContext';
+
 import '../styles/Inventory.css';
 
 // ============ TYPE DEFINITIONS ============
@@ -15,7 +19,7 @@ interface Product {
   category: string;
   image: string;
   rating: number;
-  ratingStatus: 'excellent' | 'good' | 'critical' | 'unlinked';
+  ratingStatus: 'excellent' | 'good' | 'issues' | 'critical' | 'no_reviews';
   isLinked: boolean;
   hasCriticalIssue: boolean;
   // Sentiment breakdown (percentage)
@@ -34,114 +38,119 @@ interface Product {
 // Stats cards এর data
 interface StatsData {
   reviewsAnalyzed: number;
-  reviewsGrowth: number;
+  // Historical growth isn't available yet from backend; keep null instead of mock %
+  reviewsGrowth: number | null;
   globalSentiment: number;
   criticalIssues: number;
 }
 
-// ============ MOCK DATA ============
-
-// Mock products list - পরে API থেকে আসবে
-const mockProducts: Product[] = [
-  {
-    id: '1',
-    name: 'NoiseCancel Pro X1',
-    asin: 'B08X45Y7',
-    category: 'Electronics',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDubHHwGdvkihUh1nL9HTan2vxAV0tqzjLhJ9rRCsHf30HhQZeF_Y6YL6fNkZ4HazO5Y6nxJIWVZ6MbfMTm9-zFW3ujbp9CYPy31QmZfUs09T84r_sO_M9yCd_j5O3yvnlp5TR5CJRauR2HvVWBvtyVNibaFtcDCwA9MJjSJXhg03zLNzZkZEXMBgWq-tT3bc9HXIagIBM7tK70p2pFaYFtH2FsFIWUTbANSCaCWxXk1kumNSekVrLlwTQYyffWWsuqO01VHmRBnA',
-    rating: 4.8,
-    ratingStatus: 'excellent',
-    isLinked: true,
-    hasCriticalIssue: false,
-    sentiment: { positive: 75, neutral: 15, negative: 10 },
-    tags: [
-      { text: 'Audio Quality', type: 'positive' },
-      { text: 'Battery', type: 'positive' },
-      { text: 'Price', type: 'negative' }
-    ]
-  },
-  {
-    id: '2',
-    name: 'Viper Gaming Mouse',
-    asin: 'B09Z22K1',
-    category: 'Gaming',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9bcg2svJCpNXCmh2gRVAouZaYq0fq48PHdfll0Q-0sa6TuzrJPBc7rddnI5aU2NdwBHwiWgaMX3kurYYKHrZ7EylH8CvUx_z5pOGoeYwLipFdmy_4rJ9N1p-m-GK970aVO-FolUr3tmLBSMLpWa588CUHVq7icGehTWEJxVghuIykn1xDwGy1o47mtBpDGQGcJGLxFRHCg7iQCa1ySb4iZMIbXIEVJ6JTAQ2y-j_x3c3i3buKpMMGYwTpvtkZGauJm0lh47jAOA',
-    rating: 3.2,
-    ratingStatus: 'critical',
-    isLinked: true,
-    hasCriticalIssue: true,
-    sentiment: { positive: 30, neutral: 20, negative: 50 },
-    tags: [
-      { text: 'Scroll Wheel', type: 'negative' },
-      { text: 'Connectivity', type: 'negative' }
-    ]
-  },
-  {
-    id: '3',
-    name: 'MechKey K2',
-    asin: '---',
-    category: 'Computers',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCDyQ1XaZEJYRmeX3uIX1oYfy-CgN0KekmX2o7Ky0HHwihPkYzypjVhc9nFc6Ystcn_njZxCw60svQfkJvHiIOkuRhGWeUhSABPCjPgyMduZ3hRUOkv-fAjgSfh539RCJuJniKeIZ6954vsL3nAzQo5KIRJhJlfn3PCqKHhQjpILr0rjvmA6os3oZt_XxB7aScIpsDRbQMADGVcNwp_9hseq7QA56e4jIcX6tWrfSAj60hA_rgxdrDKmmbr5IFRTthyf27pT2B7Qg',
-    rating: 0,
-    ratingStatus: 'unlinked',
-    isLinked: false,
-    hasCriticalIssue: false,
-    sentiment: { positive: 0, neutral: 0, negative: 0 },
-    tags: []
-  },
-  {
-    id: '4',
-    name: 'SmartFit Band 4',
-    asin: 'B07J99L3',
-    category: 'Wearables',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBRrNqng61O_TFdxpo_vf8cAV-Y0NLjRb2H9znx_3fjsYdBzTjY2YVviY4oJ65CKEBgDCTfG-QcXjYRHoZQExtI_7qH016XhZTPMsgF_IN_FG64JQh6ZBcL0oE6vZmolMmMdVVLT-xfBB-gdABCOA8ptI50lXSbJ14JJXb1e1bvj8_FM4desSBlR1K--2wPc_oC2Ny62o6vDTrgm5O97GkPsyas5HjbonBdPz5Esf3z5pCsbSN-tDOardj15uhZnZL546ZwDyV5-Q',
-    rating: 4.5,
-    ratingStatus: 'good',
-    isLinked: true,
-    hasCriticalIssue: false,
-    sentiment: { positive: 60, neutral: 30, negative: 10 },
-    tags: [
-      { text: 'Comfort', type: 'positive' },
-      { text: 'App Sync', type: 'neutral' }
-    ]
-  },
-  {
-    id: '5',
-    name: 'Ceramic Brew Mug',
-    asin: 'B01N88K2',
-    category: 'Home',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDOVfzBQw_ItRFtPhTcmxjnz3qlu9_XSs3PMiIhcn_ANCTgVAVeCFuLDgxb0OAkLlHjFkAt591v5l2aBE3njs1WtuZO0zuENb4xR7fP63Lf2wzgejAy8LWfOWYE03IaY9C_rr-DhK2fDHiEj5Iy6bgGfBAL3vyhCGKMeOayZanWVJIk4WTHafosguAxAMe5YJo7Gb_va0dJxqygpsTm5WajzYQF2xoNuCbuB-ss3ehYv62wTDVF6ChrAA65JcjuNlMou37p17dqKw',
-    rating: 4.9,
-    ratingStatus: 'excellent',
-    isLinked: true,
-    hasCriticalIssue: false,
-    sentiment: { positive: 95, neutral: 5, negative: 0 },
-    tags: [
-      { text: 'Design', type: 'positive' },
-      { text: 'Durability', type: 'positive' },
-      { text: 'Giftable', type: 'positive' }
-    ]
-  }
-];
-
-// Mock stats data
-const mockStats: StatsData = {
-  reviewsAnalyzed: 54200,
-  reviewsGrowth: 12,
-  globalSentiment: 4.2,
-  criticalIssues: 3
-};
+// ============ NOTE ============
+// আগে এখানে mock products list ছিল।
+// এখন Products page সম্পূর্ণ Shopify/Judge.me data থেকে populate হয় (ReviewContext থেকে)।
 
 // ============ COMPONENT ============
 
 function Inventory() {
   const navigate = useNavigate();
   
+  // ============ CONTEXT - GLOBAL STATE ============
+  const { results, isLoading, error, products: shopifyProducts, productAnalytics } = useReviews();
+  
   // ============ STATE ============
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<'all' | 'critical' | 'highVolume' | 'unlinked'>('all');
-  const [products] = useState<Product[]>(mockProducts);
-  const [stats] = useState<StatsData>(mockStats);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'critical' | 'highVolume' | 'noReviews'>('all');
+  
+  // ============ PRODUCTS DATA ============ 
+  // Shopify থেকে আসা products + analytics merge করে UI-friendly structure বানাচ্ছি
+  const products: Product[] = useMemo(() => {
+    // Shopify data না থাকলে empty list return করব (mock দেখাব না)
+    if (!shopifyProducts || shopifyProducts.length === 0) {
+      return [];
+    }
+    
+    return shopifyProducts.map((p) => {
+      // Analytics match করার চেষ্টা (product_id match first, fallback title)
+      const analytics = productAnalytics.find(a => 
+        (a.product_id && a.product_id === p.id) || 
+        (a.product_title && a.product_title === p.title)
+      );
+      
+      const avgRating = analytics?.average_rating ?? 0;
+      const pos = analytics?.positive_percentage ?? 0;
+      const neg = analytics?.negative_percentage ?? 0;
+      const neutral = Math.max(0, 100 - pos - neg);
+      
+      // Rating status define করছি
+      const ratingStatus: Product['ratingStatus'] = !analytics
+        ? 'no_reviews'
+        : avgRating >= 4.5
+          ? 'excellent'
+          : avgRating >= 4.0
+            ? 'good'
+            : avgRating >= 3.5
+              ? 'issues'
+              : 'critical';
+      
+      // Critical issue detection
+      // বাংলা: 3.5-3.9 -> Issues Found, <3.5 -> Critical
+      const hasCriticalIssue =
+        Boolean(analytics) && (
+          ratingStatus === 'issues' ||
+          ratingStatus === 'critical' ||
+          neg >= 40
+        );
+      
+      // Tags/topics mapping (UI badges)
+      const tags: Product['tags'] = [];
+      (analytics?.top_positive_topics || []).slice(0, 2).forEach(t => {
+        tags.push({ text: t, type: 'positive' });
+      });
+      (analytics?.top_negative_topics || []).slice(0, 2).forEach(t => {
+        tags.push({ text: t, type: 'negative' });
+      });
+      
+      return {
+        id: String(p.id),
+        name: p.title,
+        asin: String(p.id), // Shopify product id ব্যবহার করছি placeholder হিসেবে
+        category: p.product_type || 'Uncategorized',
+        image: p.image_url || '',
+        rating: avgRating,
+        ratingStatus,
+        isLinked: Boolean(analytics),
+        hasCriticalIssue,
+        sentiment: { positive: pos, neutral, negative: neg },
+        tags
+      };
+    });
+  }, [shopifyProducts, productAnalytics]);
+
+  // Top Rated product (single) - highest rating among linked products
+  const topRatedId = useMemo(() => {
+    const linked = products.filter(p => p.isLinked && p.rating > 0);
+    if (linked.length === 0) return null;
+    const best = linked.reduce((acc, cur) => (cur.rating > acc.rating ? cur : acc), linked[0]);
+    return best.id;
+  }, [products]);
+  
+  // ============ DERIVED STATE ============
+  // Context এর results থেকে stats calculate করছি
+  const stats: StatsData = useMemo(() => {
+    if (results) {
+      return {
+        reviewsAnalyzed: results.total_reviews,
+        reviewsGrowth: null, // No mock: show as unavailable until we have history
+        globalSentiment: parseFloat((results.positive_percentage / 20).toFixed(1)), // 0-100 to 0-5 scale
+        criticalIssues: results.negative_count > 10 ? Math.min(results.negative_count, 5) : 0
+      };
+    }
+    return {
+      reviewsAnalyzed: 0,
+      reviewsGrowth: null,
+      globalSentiment: 0,
+      criticalIssues: 0
+    };
+  }, [results]);
   
   // ============ HANDLERS ============
   
@@ -157,8 +166,9 @@ function Inventory() {
     if (activeFilter === 'critical') {
       matchesFilter = product.hasCriticalIssue;
     } else if (activeFilter === 'highVolume') {
-      matchesFilter = product.rating >= 4.5;
-    } else if (activeFilter === 'unlinked') {
+      // User request: show Good + Excellent products
+      matchesFilter = product.isLinked && (product.ratingStatus === 'excellent' || product.ratingStatus === 'good');
+    } else if (activeFilter === 'noReviews') {
       matchesFilter = !product.isLinked;
     }
     
@@ -167,12 +177,11 @@ function Inventory() {
   
   // Product details page এ navigate করা
   const handleProductClick = (productId: string) => {
-    navigate(`/product/${productId}`);
-  };
-  
-  // Product insights page এ navigate করা
-  const handleInsightsClick = (productId: string) => {
     navigate(`/product/${productId}/insights`);
+  };
+ 
+  const handleFixIssuesClick = (productId: string) => {
+    navigate(`/product/${productId}/fix-issues`);
   };
   
   // Rating status অনুযায়ী text return করে
@@ -180,8 +189,9 @@ function Inventory() {
     switch (status) {
       case 'excellent': return 'Excellent';
       case 'good': return 'Good';
+      case 'issues': return 'Issues Found';
       case 'critical': return 'Critical';
-      case 'unlinked': return 'Unlinked';
+      case 'no_reviews': return 'No Reviews';
       default: return '';
     }
   };
@@ -198,6 +208,40 @@ function Inventory() {
   
   return (
     <div className="inventory-page">
+      {/* ========== LOADING STATE ========== */}
+      {isLoading && (
+        <div style={{
+          padding: '1rem',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          border: '1px solid rgba(59, 130, 246, 0.3)',
+          borderRadius: '8px',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem'
+        }}>
+          <span className="material-symbols-outlined" style={{ color: '#3b82f6', animation: 'spin 1s linear infinite' }}>sync</span>
+          <span style={{ color: '#3b82f6' }}>Fetching latest reviews from Judge.me...</span>
+        </div>
+      )}
+      
+      {/* ========== ERROR STATE ========== */}
+      {error && (
+        <div style={{
+          padding: '1rem',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          borderRadius: '8px',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem'
+        }}>
+          <span className="material-symbols-outlined" style={{ color: '#ef4444' }}>error</span>
+          <span style={{ color: '#ef4444' }}>{error}</span>
+        </div>
+      )}
+      
       {/* ========== PAGE HEADER ========== */}
       <section className="page-header-section">
         <div className="header-content">
@@ -217,10 +261,14 @@ function Inventory() {
             <p className="stat-label">Reviews Analyzed</p>
             <div className="stat-value-row">
               <span className="stat-value">{formatNumber(stats.reviewsAnalyzed)}</span>
-              <span className="stat-badge positive">
-                <span className="material-symbols-outlined">trending_up</span>
-                {stats.reviewsGrowth}%
-              </span>
+              {typeof stats.reviewsGrowth === 'number' ? (
+                <span className="stat-badge positive">
+                  <span className="material-symbols-outlined">trending_up</span>
+                  {stats.reviewsGrowth}%
+                </span>
+              ) : (
+                <span className="stat-badge neutral">—</span>
+              )}
             </div>
           </div>
           
@@ -293,11 +341,11 @@ function Inventory() {
             High Volume
           </button>
           <button 
-            className={`filter-btn ${activeFilter === 'unlinked' ? 'active' : ''}`}
-            onClick={() => setActiveFilter('unlinked')}
+            className={`filter-btn ${activeFilter === 'noReviews' ? 'active' : ''}`}
+            onClick={() => setActiveFilter('noReviews')}
           >
-            <span className="material-symbols-outlined">link_off</span>
-            Unlinked
+            <span className="material-symbols-outlined">speaker_notes_off</span>
+            No Reviews
           </button>
         </div>
         
@@ -316,7 +364,14 @@ function Inventory() {
         {filteredProducts.map((product) => (
           <div 
             key={product.id} 
-            className={`product-card card-3d ${product.hasCriticalIssue ? 'critical' : ''} ${!product.isLinked ? 'unlinked' : ''}`}
+            className={`product-card card-3d ${product.isLinked ? 'clickable' : ''} ${product.hasCriticalIssue ? 'critical' : ''} ${!product.isLinked ? 'no-reviews' : ''}`}
+            onClick={() => { if (product.isLinked) handleProductClick(product.id); }}
+            role={product.isLinked ? 'button' : undefined}
+            tabIndex={product.isLinked ? 0 : -1}
+            onKeyDown={(e) => {
+              if (!product.isLinked) return;
+              if (e.key === 'Enter' || e.key === ' ') handleProductClick(product.id);
+            }}
           >
             {/* Critical Indicator */}
             {product.hasCriticalIssue && (
@@ -329,8 +384,8 @@ function Inventory() {
               <div className={`product-image ${!product.isLinked ? 'grayscale' : ''}`}>
                 <img src={product.image} alt={product.name} />
                 {!product.isLinked && (
-                  <div className="unlinked-overlay">
-                    <span className="material-symbols-outlined">link_off</span>
+                  <div className="no-reviews-overlay">
+                    <span className="material-symbols-outlined">speaker_notes_off</span>
                   </div>
                 )}
               </div>
@@ -346,13 +401,19 @@ function Inventory() {
                     <span className={`rating-status ${product.ratingStatus}`}>
                       {getRatingStatusText(product.ratingStatus)}
                     </span>
+                    {topRatedId && product.id === topRatedId && (
+                      <div className="top-rated">
+                        <span className="material-symbols-outlined">crown</span>
+                        <span>Top Rated</span>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>
-                    <div className="rating-value unlinked">
+                    <div className="rating-value no-reviews">
                       <span>--</span>
                     </div>
-                    <span className="rating-status unlinked">Unlinked</span>
+                    <span className="rating-status no_reviews">No Reviews</span>
                   </>
                 )}
               </div>
@@ -407,8 +468,8 @@ function Inventory() {
                 </div>
               </div>
             ) : (
-              <div className="unlinked-section">
-                <p>Connect a source to start analyzing reviews with AI.</p>
+              <div className="no-reviews-section">
+                <p>No reviews found for this product in Judge.me.</p>
               </div>
             )}
             
@@ -416,33 +477,40 @@ function Inventory() {
             <div className="product-actions">
               {product.isLinked ? (
                 <>
-                  <button 
-                    className="btn-secondary"
-                    onClick={() => handleProductClick(product.id)}
-                  >
-                    Details
-                  </button>
-                  <button 
-                    className={`btn-primary ${product.hasCriticalIssue ? 'critical' : ''}`}
-                    onClick={() => handleInsightsClick(product.id)}
-                  >
-                    {product.hasCriticalIssue ? (
-                      <>
+                  {(product.ratingStatus === 'excellent' || product.ratingStatus === 'good') ? (
+                    <button
+                      className="btn-primary"
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleProductClick(product.id); }}
+                      style={{ width: '100%' }}
+                    >
+                      Insights
+                      <span className="material-symbols-outlined">arrow_forward</span>
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        className="btn-secondary"
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleProductClick(product.id); }}
+                      >
+                        Insights
+                      </button>
+                      <button
+                        className="btn-primary critical"
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleFixIssuesClick(product.id); }}
+                      >
                         Fix Issues
                         <span className="material-symbols-outlined">build</span>
-                      </>
-                    ) : (
-                      <>
-                        Insights
-                        <span className="material-symbols-outlined">arrow_forward</span>
-                      </>
-                    )}
-                  </button>
+                      </button>
+                    </>
+                  )}
                 </>
               ) : (
-                <button className="btn-connect">
-                  <span className="material-symbols-outlined">link</span>
-                  Connect Source
+                <button className="btn-connect" type="button" disabled title="No reviews available for this product" onClick={(e) => e.stopPropagation()}>
+                  <span className="material-symbols-outlined">visibility_off</span>
+                  No Reviews
                 </button>
               )}
             </div>
