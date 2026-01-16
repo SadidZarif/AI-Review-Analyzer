@@ -110,8 +110,8 @@ export default function AIChatPage() {
       if (allReviews.length > 0) {
         const dates = allReviews
           .map(r => r.created_at)
-          .filter(Boolean)
-          .map(d => new Date(d))
+          .filter((d): d is string => typeof d === 'string' && d.trim().length > 0)
+          .map((d) => new Date(d))
           .filter(d => !isNaN(d.getTime()));
         if (dates.length > 0) {
           const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
